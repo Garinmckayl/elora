@@ -1,0 +1,36 @@
+node_modules/
+.env
+.env.local
+.env.*.local
+.DS_Store
+*.log
+target/
+dist/
+.expo/
+android/
+ios/
+*.apk
+*.ipa
+.terraform/
+*.tfstate
+*.tfstate.backup
+terraform.tfvars
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Secrets & credentials
+core/.env
+core/.env.agent
+core/agent.env
+core/agent.secrets
+credentials.json
+app/credentials/
+*.jks
+*.keystore
+docs/progress.md
+infra/terraform.tfvars.example
+
+# Build
+*.egg-info/

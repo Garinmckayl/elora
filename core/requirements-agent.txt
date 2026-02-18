@@ -1,0 +1,23 @@
+# LiveKit Agent dependencies (deployed to LiveKit Cloud, not Cloud Run)
+livekit-agents[google]==1.4.3
+livekit-plugins-google==1.4.3
+livekit-api>=1.0.7,<2
+
+# Shared tool dependencies
+google-genai>=1.0.0
+google-api-python-client>=2.100.0
+google-auth>=2.35.0
+google-auth-httplib2>=0.2.0
+google-auth-oauthlib>=1.2.0
+fastapi>=0.115.0
+httpx>=0.27.0
+python-dotenv>=1.0.0
+google-cloud-firestore>=2.19.0
+google-cloud-storage>=2.18.0
+firebase-admin>=6.6.0
+playwright>=1.44.0
+readability-lxml>=0.8.1
+e2b-code-interpreter>=1.0.0
+twilio>=9.0.0
+# memU - Proactive memory engine (10x lower always-on cost, 92% Locomo accuracy)
+google-adk>=1.0.0
