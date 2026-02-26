@@ -1,0 +1,72 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "core/**"
+      - ".github/workflows/deploy.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # for Workload Identity Federation
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: elor-487806
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker gcr.io --quiet
+
+      - name: Build and push Docker image
+        working-directory: core
+        run: |
+          IMAGE=gcr.io/elor-487806/elora-backend:${{ github.sha }}
+          docker build -t $IMAGE .
+          docker push $IMAGE
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy elora-backend \
+            --image ${{ env.IMAGE }} \
+            --region us-central1 \
+            --platform managed \
+            --allow-unauthenticated \
+            --memory 2Gi \
+            --cpu 2 \
+            --timeout 3600 \
+            --concurrency 10 \
+            --set-env-vars "FIRESTORE_PROJECT_ID=elor-487806,E2B_API_KEY=${{ secrets.E2B_API_KEY }}" \
+            --quiet
+
+      # One-time Firestore indexes (idempotent — safe to re-run)
+      # 1. Vector index for semantic memory recall
+      # 2. Collection-group index for reminder poller cross-user query
+      - name: Ensure Firestore indexes
+        run: |
+          gcloud firestore indexes composite create \
+            --collection-group=memories \
+            --query-scope=COLLECTION \
+            --field-config field-path=embedding,vector-config='{"dimension":768,"flat":{}}' \
+            --project elor-487806 \
+            --quiet || true
+          gcloud firestore indexes composite create \
+            --collection-group=jobs \
+            --query-scope=COLLECTION_GROUP \
+            --field-config field-path=fired,order=ASCENDING \
+            --field-config field-path=fire_at,order=ASCENDING \
+            --project elor-487806 \
+            --quiet || true

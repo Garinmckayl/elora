@@ -1,0 +1,64 @@
+{
+  "expo": {
+    "name": "Elora",
+    "slug": "elora",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "scheme": "elora",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0E1A"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.elora.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Elora needs microphone access so she can hear you speak.",
+        "NSCameraUsageDescription": "Elora needs camera access so she can see what you're looking at.",
+        "UIBackgroundModes": [
+          "audio",
+          "voip"
+        ]
+      }
+    },
+    "android": {
+      "package": "com.elora.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A0E1A"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "RECORD_AUDIO",
+        "CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.CAMERA"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-dev-client",
+      "expo-audio",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Elora needs camera access so she can see what you're looking at."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "5ece768f-25a3-4410-b132-4673b9ae8230"
+      }
+    },
+    "owner": "zeshama"
+  }
+}

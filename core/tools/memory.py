@@ -1,0 +1,200 @@
+"""
+Firestore-backed semantic memory for Elora.
+
+Each memory is stored with a text-embedding-004 vector so we can do
+nearest-neighbour recall instead of dumb keyword matching.
+
+Firestore vector search requires a composite vector index on the
+`embedding` field. The index is created automatically on first use
+via the Admin SDK, or you can create it manually:
+
+  gcloud firestore indexes composite create \
+    --collection-group=memories \
+    --query-scope=COLLECTION \
+    --field-config field-path=embedding,vector-config='{"dimension":768,"flat":{}}'
+
+Falls back to recency-based recall if embeddings are unavailable.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+from datetime import datetime, timezone
+from typing import Optional
+
+logger = logging.getLogger("elora.memory")
+
+# ── Firestore client (sync) ──────────────────────────────────────────────────
+_db = None
+_project = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCP_PROJECT")
+
+try:
+    if _project:
+        from google.cloud import firestore
+        _db = firestore.Client(project=_project)
+        logger.info(f"Firestore memory initialised (project={_project})")
+    else:
+        logger.warning("No GOOGLE_CLOUD_PROJECT — using in-memory fallback")
+except Exception as e:
+    logger.warning(f"Firestore unavailable, using in-memory: {e}")
+
+# ── Gemini embeddings client ─────────────────────────────────────────────────
+_embed_client = None
+_EMBED_MODEL = "models/text-embedding-004"
+_EMBED_DIM = 768
+
+try:
+    from google import genai as _genai
+    _embed_client = _genai.Client(api_key=os.getenv("GOOGLE_API_KEY", ""))
+    logger.info("Embedding client initialised")
+except Exception as e:
+    logger.warning(f"Embedding client unavailable: {e}")
+
+# ── In-memory fallback ───────────────────────────────────────────────────────
+_memory_store: dict[str, list[dict]] = {}
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _embed(text: str) -> Optional[list[float]]:
+    """Return a 768-dim embedding for *text*, or None on failure."""
+    if not _embed_client:
+        return None
+    try:
+        resp = _embed_client.models.embed_content(
+            model=_EMBED_MODEL,
+            contents=text,
+        )
+        return resp.embeddings[0].values
+    except Exception as e:
+        logger.warning(f"Embed failed: {e}")
+        return None
+
+
+def _memories_collection(user_id: str):
+    """Return the Firestore sub-collection for a user's memories."""
+    return _db.collection("users").document(user_id).collection("memories")
+
+
+# ── Public API ───────────────────────────────────────────────────────────────
+
+def save_memory(user_id: str, fact: str) -> dict:
+    """Persist *fact* to Firestore with a vector embedding."""
+    from datetime import datetime, timezone
+
+    vec = _embed(fact)
+
+    entry: dict = {
+        "fact": fact,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(timezone.utc),
+    }
+    if vec is not None:
+        from google.cloud.firestore_v1.vector import Vector
+        entry["embedding"] = Vector(vec)
+
+    if _db:
+        try:
+            _memories_collection(user_id).document().set(entry)
+            logger.info(f"[Memory] Saved: '{fact[:60]}' user={user_id} vec={vec is not None}")
+            return {"status": "success", "report": f"Got it, I'll remember: '{fact}'"}
+        except Exception as e:
+            logger.error(f"Firestore save error: {e}")
+
+    # In-memory fallback
+    _memory_store.setdefault(user_id, []).append({"fact": fact})
+    return {"status": "partial", "report": f"Got it, I'll remember: '{fact}' (stored locally, cloud sync pending)"}
+
+
+def search_memory(user_id: str, query: str, top_k: int = 5) -> dict:
+    """
+    Semantic search over the user's memories using vector nearest-neighbour.
+    Falls back to keyword + recency if vectors aren't available.
+    """
+    if _db:
+        try:
+            # Try vector search first
+            query_vec = _embed(query)
+            if query_vec is not None:
+                from google.cloud.firestore_v1.vector import Vector
+                from google.cloud.firestore_v1.base_vector_query import DistanceMeasure
+
+                results = (
+                    _memories_collection(user_id)
+                    .find_nearest(
+                        vector_field="embedding",
+                        query_vector=Vector(query_vec),
+                        distance_measure=DistanceMeasure.COSINE,
+                        limit=top_k,
+                    )
+                    .stream()
+                )
+                memories = [doc.to_dict().get("fact", "") for doc in results]
+                if memories:
+                    logger.info(f"[Memory] Vector recall: {len(memories)} results for '{query[:40]}'")
+                    return {
+                        "status": "success",
+                        "report": f"Found {len(memories)} relevant memories",
+                        "memories": memories,
+                    }
+
+            # Fallback: recency-based
+            from google.cloud import firestore as fs
+            docs = (
+                _memories_collection(user_id)
+                .order_by("created_at", direction=fs.Query.DESCENDING)
+                .limit(20)
+                .stream()
+            )
+            all_facts = [d.to_dict().get("fact", "") for d in docs]
+
+            # Keyword filter
+            ql = query.lower()
+            matched = [f for f in all_facts if ql in f.lower()] or all_facts[:top_k]
+            return {
+                "status": "success",
+                "report": f"Found {len(matched)} memories",
+                "memories": matched,
+            }
+
+        except Exception as e:
+            logger.error(f"Firestore search error: {e}")
+
+    # Pure in-memory fallback
+    facts = [e["fact"] for e in _memory_store.get(user_id, [])]
+    ql = query.lower()
+    matched = [f for f in reversed(facts) if ql in f.lower()] or facts[-top_k:]
+    return {"status": "success", "report": f"Found {len(matched)} memories", "memories": matched}
+
+
+def auto_memorise(user_id: str, conversation_turn: str) -> None:
+    """
+    Called after every Elora response to silently extract and store
+    any personal facts mentioned by the user.
+
+    Uses Gemini Flash to extract facts — fire-and-forget, never blocks.
+    """
+    if not _embed_client:
+        return
+    try:
+        prompt = (
+            "Extract any personal facts, preferences, or important details the USER "
+            "mentioned in this conversation turn. Return each fact on its own line. "
+            "If there are no personal facts, return the single word NONE.\n\n"
+            f"Turn:\n{conversation_turn}"
+        )
+        resp = _embed_client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt,
+        )
+        text = resp.text.strip()
+        if text.upper() == "NONE" or not text:
+            return
+        for line in text.splitlines():
+            line = line.strip("- •*").strip()
+            if len(line) > 10:
+                save_memory(user_id, line)
+                logger.info(f"[Memory] Auto-memorised: '{line[:60]}'")
+    except Exception as e:
+        logger.debug(f"Auto-memorise failed (non-critical): {e}")
