@@ -3,10 +3,11 @@
  * Premium Warm/Elegant design
  */
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -16,18 +17,25 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, borderRadius, shadows } from "../theme";
+import { spacing, borderRadius, useTheme } from "../theme";
 import { BACKEND_URL } from "../config";
+
+import { User } from "firebase/auth";
 
 interface SettingsScreenProps {
   onClose: () => void;
   userId: string;
+  user?: User | null;
+  onSignIn?: () => Promise<void>;
+  onSignOut?: () => Promise<void>;
 }
 
-export default function SettingsScreen({ onClose, userId }: SettingsScreenProps) {
+export default function SettingsScreen({ onClose, userId, user, onSignIn, onSignOut }: SettingsScreenProps) {
   const [isGmailConnected, setIsGmailConnected] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const linkingSubscription = useRef<ReturnType<typeof Linking.addEventListener> | null>(null);
+  const { mode, toggleTheme, isDark, colors, shadows } = useTheme();
+  const styles = useMemo(() => createStyles(colors, shadows), [colors, shadows]);
 
   useEffect(() => {
     checkAuthStatus();
@@ -94,10 +102,33 @@ export default function SettingsScreen({ onClose, userId }: SettingsScreenProps)
             end={{ x: 1, y: 1 }}
             style={styles.profileAvatar}
           >
-            <Ionicons name="person" size={32} color={colors.background} />
+            {user?.photoURL ? (
+              <Image
+                source={{ uri: user.photoURL }}
+                style={{ width: 72, height: 72, borderRadius: 36 }}
+              />
+            ) : (
+              <Ionicons name="person" size={32} color={colors.background} />
+            )}
           </LinearGradient>
-          <Text style={styles.profileName}>User</Text>
-          <Text style={styles.profileSub}>Personal AI Agent</Text>
+          <Text style={styles.profileName}>{user?.displayName || "User"}</Text>
+          <Text style={styles.profileSub}>{user?.email || "Personal AI Agent"}</Text>
+          {user && onSignOut && (
+            <TouchableOpacity
+              onPress={onSignOut}
+              style={{
+                marginTop: 12,
+                paddingHorizontal: 20,
+                paddingVertical: 8,
+                borderRadius: borderRadius.full,
+                borderWidth: 1,
+                borderColor: colors.error,
+                backgroundColor: "rgba(229, 62, 62, 0.1)",
+              }}
+            >
+              <Text style={{ color: colors.error, fontSize: 14, fontWeight: "600" }}>Sign Out</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Connected Accounts */}
@@ -152,6 +183,43 @@ export default function SettingsScreen({ onClose, userId }: SettingsScreenProps)
           />
         </View>
 
+        {/* Appearance */}
+        <Text style={styles.sectionLabel}>APPEARANCE</Text>
+        <View style={styles.card}>
+          <TouchableOpacity onPress={toggleTheme} activeOpacity={0.7}>
+            <View style={styles.row}>
+              <View style={styles.rowIcon}>
+                <Ionicons name={isDark ? "moon-outline" : "sunny-outline"} size={20} color={colors.gold} />
+              </View>
+              <View style={styles.rowContent}>
+                <Text style={styles.rowLabel}>Theme</Text>
+                <Text style={styles.rowDescription}>{isDark ? "Dark mode" : "Light mode"}</Text>
+              </View>
+              <View style={{
+                width: 50,
+                height: 28,
+                borderRadius: 14,
+                backgroundColor: isDark ? colors.gold : "rgba(0,0,0,0.1)",
+                justifyContent: "center",
+                paddingHorizontal: 2,
+              }}>
+                <View style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 12,
+                  backgroundColor: "#FFFFFF",
+                  alignSelf: isDark ? "flex-end" : "flex-start",
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 2,
+                  elevation: 2,
+                }} />
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
+
         {/* About */}
         <Text style={styles.sectionLabel}>ABOUT</Text>
         <View style={styles.card}>
@@ -191,26 +259,27 @@ interface SettingsRowProps {
 }
 
 function SettingsRow({ icon, label, description, status, onPress }: SettingsRowProps) {
+  const { colors } = useTheme();
   const content = (
-    <View style={styles.row}>
-      <View style={styles.rowIcon}>
+    <View style={rowStyles.row}>
+      <View style={[rowStyles.rowIcon, { backgroundColor: colors.goldMuted }]}>
         <Ionicons name={icon} size={20} color={colors.gold} />
       </View>
-      <View style={styles.rowContent}>
-        <Text style={styles.rowLabel}>{label}</Text>
-        <Text style={styles.rowDescription}>{description}</Text>
+      <View style={rowStyles.rowContent}>
+        <Text style={[rowStyles.rowLabel, { color: colors.textPrimary }]}>{label}</Text>
+        <Text style={[rowStyles.rowDescription, { color: colors.textSecondary }]}>{description}</Text>
       </View>
       {status === "loading" && (
         <ActivityIndicator size="small" color={colors.gold} />
       )}
       {status === "connected" && (
-        <View style={styles.connectedBadge}>
+        <View style={rowStyles.connectedBadge}>
           <Ionicons name="checkmark-circle" size={20} color={colors.success} />
         </View>
       )}
       {status === "disconnected" && (
-        <View style={styles.connectButton}>
-          <Text style={styles.connectButtonText}>Connect</Text>
+        <View style={[rowStyles.connectButton, { backgroundColor: colors.goldMuted, borderColor: colors.gold }]}>
+          <Text style={[rowStyles.connectButtonText, { color: colors.gold }]}>Connect</Text>
         </View>
       )}
       {!status && (
@@ -230,7 +299,49 @@ function SettingsRow({ icon, label, description, status, onPress }: SettingsRowP
   return content;
 }
 
-const styles = StyleSheet.create({
+const rowStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  rowIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rowContent: {
+    flex: 1,
+  },
+  rowLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  rowDescription: {
+    fontSize: 13,
+    marginTop: 1,
+  },
+  connectedBadge: {
+    padding: 4,
+  },
+  connectButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+  },
+  connectButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+});
+
+function createStyles(colors: any, shadows: any) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -332,20 +443,5 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 1,
   },
-  connectedBadge: {
-    padding: 4,
-  },
-  connectButton: {
-    backgroundColor: colors.goldMuted,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: colors.gold,
-  },
-  connectButtonText: {
-    color: colors.gold,
-    fontSize: 13,
-    fontWeight: "600",
-  },
 });
+}

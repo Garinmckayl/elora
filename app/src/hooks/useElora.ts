@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import EloraWebSocket from "../services/websocket";
 import { WS_URL } from "../config";
 
@@ -18,6 +19,9 @@ export interface Message {
   content: string;
   timestamp: Date;
   imageBase64?: string;
+  // Audio content (e.g. from generate_music tool)
+  audioBase64?: string;
+  audioMimeType?: string;
   // Tool-use card fields
   toolName?: string;
   toolArgs?: Record<string, any>;
@@ -53,6 +57,43 @@ export function useElora(options: UseEloraOptions = {}) {
   const [isConnected, setIsConnected] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const wsRef = useRef<EloraWebSocket | null>(null);
+  const messagesLoadedRef = useRef(false);
+
+  // Storage key scoped to the user
+  const storageKey = `elora_messages_${userId}`;
+
+  // Load persisted messages on mount
+  useEffect(() => {
+    AsyncStorage.getItem(storageKey).then((json) => {
+      if (json) {
+        try {
+          const parsed: Message[] = JSON.parse(json).map((m: any) => ({
+            ...m,
+            timestamp: new Date(m.timestamp),
+          }));
+          // Only load the most recent 100 messages to avoid memory issues
+          setMessages(parsed.slice(-100));
+        } catch (e) {
+          console.warn("[Chat] Failed to parse saved messages:", e);
+        }
+      }
+      messagesLoadedRef.current = true;
+    });
+  }, [storageKey]);
+
+  // Persist messages when they change (debounced to avoid excessive writes)
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!messagesLoadedRef.current) return; // Don't save during initial load
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      // Save last 100 messages
+      const toSave = messages.slice(-100);
+      AsyncStorage.setItem(storageKey, JSON.stringify(toSave)).catch((e) =>
+        console.warn("[Chat] Failed to save messages:", e)
+      );
+    }, 500);
+  }, [messages, storageKey]);
 
   const onBrowserScreenshotRef = useRef(onBrowserScreenshot);
   const onBrowserStepRef = useRef(onBrowserStep);
@@ -101,6 +142,21 @@ export function useElora(options: UseEloraOptions = {}) {
               onPhotoSearchRequestRef.current?.(personName);
             }
           }
+          // Check if this is a music generation result with audio data (legacy path)
+          if (
+            (data.name === "generate_music" || data.name === "generate_audio") &&
+            data.result?.audio_base64
+          ) {
+            const audioMsg: Message = {
+              id: uid("audio"),
+              role: "elora",
+              content: data.result?.report || "Generated audio",
+              audioBase64: data.result.audio_base64,
+              audioMimeType: data.result.mime_type || "audio/wav",
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, audioMsg]);
+          }
           setMessages((prev) =>
             prev.map((m) =>
               m.toolName === data.name && m.isThinking
@@ -108,6 +164,27 @@ export function useElora(options: UseEloraOptions = {}) {
                 : m
             )
           );
+        } else if (data.type === "audio_result" && data.audio_base64) {
+          // Dedicated audio message from backend (avoids huge tool_result frames)
+          const audioMsg: Message = {
+            id: uid("audio"),
+            role: "elora",
+            content: data.report || "Generated audio",
+            audioBase64: data.audio_base64,
+            audioMimeType: data.mime_type || "audio/wav",
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, audioMsg]);
+        } else if (data.type === "image_result" && data.image_base64) {
+          // Dedicated image message from backend
+          const imageMsg: Message = {
+            id: uid("img"),
+            role: "elora",
+            content: data.report || "Generated image",
+            imageBase64: data.image_base64,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, imageMsg]);
         } else if (data.type === "browser_screenshot" && data.content) {
           onBrowserScreenshotRef.current?.(data.content);
         } else if (data.type === "browser_step" && data.content) {
@@ -166,7 +243,8 @@ export function useElora(options: UseEloraOptions = {}) {
 
   const clearMessages = useCallback(() => {
     setMessages([]);
-  }, []);
+    AsyncStorage.removeItem(storageKey).catch(() => {});
+  }, [storageKey]);
 
   /** After a photo search completes on-device, send results back to Elora as a text message */
   const sendPhotoSearchResults = useCallback(

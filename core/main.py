@@ -13,7 +13,7 @@ import struct
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 load_dotenv()
 
@@ -133,7 +133,7 @@ async def livekit_token(
 ):
     """Issue a LiveKit room token so the mobile app can join a voice session."""
     if not LIVEKIT_API_KEY or not LIVEKIT_API_SECRET:
-        return {"error": "LiveKit not configured"}, 500
+        return JSONResponse({"error": "LiveKit not configured"}, status_code=500)
 
     # Optionally verify Firebase token
     resolved_user_id = user_id
@@ -172,10 +172,10 @@ async def livekit_token(
         }
     except ImportError as ie:
         logger.error(f"[LiveKit] Import error: {ie}")
-        return {"error": "livekit-api not installed"}, 500
+        return JSONResponse({"error": "livekit-api not installed"}, status_code=500)
     except Exception as e:
         logger.error(f"[LiveKit] Token error: {e}")
-        return {"error": str(e)}, 500
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 # ---------------------------------------------------------------------------
@@ -346,6 +346,7 @@ from elora_agent.agent import (
     remember_person, recall_person, list_people, update_person_appearance,
     describe_person_from_camera, request_photo_search,
     send_sms, lookup_phone_for_person,
+    generate_image, generate_music,
     SYSTEM_INSTRUCTION,
 )
 
@@ -397,6 +398,8 @@ TOOL_FUNCTIONS = {
     "request_photo_search": request_photo_search,
     "send_sms": send_sms,
     "lookup_phone_for_person": lookup_phone_for_person,
+    "generate_image": generate_image,
+    "generate_music": generate_music,
 }
 
 # Function declarations for the Live API (schema derived from docstrings)
@@ -815,13 +818,49 @@ LIVE_TOOL_DECLARATIONS = [
     },
     {
         "name": "lookup_phone_for_person",
-        "description": "Find the phone number for a known person before sending them a text.",
+        "description": "Looks up the phone number for a remembered person.",
         "parameters": {
             "type": "object",
             "properties": {
                 "name_or_relationship": {"type": "string"},
             },
             "required": ["name_or_relationship"],
+        },
+    },
+    {
+        "name": "generate_image",
+        "description": "Generates an image from a text description. Use for art, logos, illustrations, photos, or any visual content the user asks for.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "Detailed description of the image to create.",
+                },
+                "aspect_ratio": {
+                    "type": "string",
+                    "description": "Aspect ratio like '1:1', '16:9', '9:16', '3:2'. Defaults to '1:1'.",
+                },
+            },
+            "required": ["prompt"],
+        },
+    },
+    {
+        "name": "generate_music",
+        "description": "Generates original music from a text description of mood, genre, and style using Google Lyria 3. Use when the user asks for a song, jingle, background music, or any audio track.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "Description of the music (mood, genre, instruments, tempo, energy).",
+                },
+                "duration_seconds": {
+                    "type": "integer",
+                    "description": "How long the track should be in seconds (5-30). Defaults to 15.",
+                },
+            },
+            "required": ["prompt"],
         },
     },
 ]
@@ -988,11 +1027,48 @@ async def run_text_agent(
                             }))
                     if hasattr(event, "get_function_responses"):
                         for fr in (event.get_function_responses() or []):
-                            await websocket.send_text(json.dumps({
-                                "type": "tool_result",
-                                "name": fr.name,
-                                "result": fr.response if isinstance(fr.response, dict) else {"value": str(fr.response)},
-                            }))
+                            result = fr.response if isinstance(fr.response, dict) else {"value": str(fr.response)}
+
+                            # For music/image generation, send the large binary payload
+                            # as a separate message so we don't blow up the WebSocket frame
+                            if isinstance(result, dict) and result.get("audio_base64"):
+                                # Send a dedicated audio message first
+                                await websocket.send_text(json.dumps({
+                                    "type": "audio_result",
+                                    "name": fr.name,
+                                    "audio_base64": result["audio_base64"],
+                                    "mime_type": result.get("mime_type", "audio/wav"),
+                                    "duration_seconds": result.get("duration_seconds"),
+                                    "report": result.get("report", ""),
+                                }))
+                                # Then send a slim tool_result without the huge base64
+                                slim = {k: v for k, v in result.items() if k != "audio_base64"}
+                                await websocket.send_text(json.dumps({
+                                    "type": "tool_result",
+                                    "name": fr.name,
+                                    "result": slim,
+                                }))
+                            elif isinstance(result, dict) and result.get("image_base64"):
+                                # Same for images
+                                await websocket.send_text(json.dumps({
+                                    "type": "image_result",
+                                    "name": fr.name,
+                                    "image_base64": result["image_base64"],
+                                    "mime_type": result.get("mime_type", "image/png"),
+                                    "report": result.get("report", ""),
+                                }))
+                                slim = {k: v for k, v in result.items() if k != "image_base64"}
+                                await websocket.send_text(json.dumps({
+                                    "type": "tool_result",
+                                    "name": fr.name,
+                                    "result": slim,
+                                }))
+                            else:
+                                await websocket.send_text(json.dumps({
+                                    "type": "tool_result",
+                                    "name": fr.name,
+                                    "result": result,
+                                }))
                 except Exception as e:
                     logger.warning(f"[Text WS] Failed to stream tool event: {e}")
 
@@ -2575,3 +2651,4 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
+

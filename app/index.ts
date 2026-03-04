@@ -1,12 +1,14 @@
-// LiveKit React Native requires WebRTC globals to be registered before anything else
-import { registerGlobals } from '@livekit/react-native';
-registerGlobals();
+// LiveKit React Native requires WebRTC globals to be registered before anything else.
+// In Expo Go, metro.config.js shims @livekit/react-native to an empty module,
+// so registerGlobals() is a no-op.
+try {
+  const { registerGlobals } = require("@livekit/react-native");
+  registerGlobals();
+} catch (e) {
+  console.warn("[LiveKit] registerGlobals failed. Voice calls may not work.");
+}
 
-import { registerRootComponent } from 'expo';
+import { registerRootComponent } from "expo";
+import App from "./App";
 
-import App from './App';
-
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately
 registerRootComponent(App);

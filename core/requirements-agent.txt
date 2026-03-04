@@ -19,3 +19,5 @@ playwright>=1.44.0
 readability-lxml>=0.8.1
 e2b-code-interpreter>=1.0.0
 twilio>=9.0.0
+# memU - Proactive memory engine (10x lower always-on cost, 92% Locomo accuracy)
+google-adk>=1.0.0

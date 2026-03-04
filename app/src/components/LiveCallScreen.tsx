@@ -27,6 +27,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { colors, borderRadius, shadows } from "../theme";
+import EloraAvatar from "../../components/EloraAvatar";
 
 /** Minimal message shape — matches useElora.Message */
 interface CallMessage {
@@ -369,18 +370,12 @@ export default function LiveCallScreen({
 
       {/* ---- TOP FLOATING UI ---- */}
       <View style={styles.topBar}>
-        {/* ELORA pill badge */}
-        <Animated.View style={[styles.eloraBadge, { transform: [{ scale: badgePulse }] }]}>
-          <LinearGradient
-            colors={colors.gradientGold as [string, string]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.eloraBadgeGradient}
-          >
-            <View style={styles.eloraBadgeDot} />
-            <Text style={styles.eloraBadgeText}>ELORA</Text>
-          </LinearGradient>
-        </Animated.View>
+        {/* Elora Avatar - shows current state */}
+        <EloraAvatar 
+          state={isThinking ? 'thinking' : isSpeaking ? 'speaking' : isListening ? 'listening' : 'happy'}
+          size="small"
+          animated={true}
+        />
 
         {/* Call duration / status */}
         <CallTimer isActive={true} />

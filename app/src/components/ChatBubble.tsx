@@ -5,7 +5,7 @@
  *   - Photo thumbnail for image messages
  */
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -18,8 +18,11 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, borderRadius } from "../theme";
+import { borderRadius, useTheme } from "../theme";
 import { PhotoGrid } from "./PhotoGrid";
+import AudioPlayer from "./AudioPlayer";
+
+const appIcon = require("../../assets/icons/app-icon-1024.png");
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -36,6 +39,9 @@ export interface ChatBubbleProps {
   timestamp: Date;
   /** Base64 JPEG for photo messages */
   imageBase64?: string;
+  /** Base64 audio data (from generate_music) */
+  audioBase64?: string;
+  audioMimeType?: string;
   /** For tool-use bubbles: structured info */
   toolName?: string;
   toolArgs?: Record<string, any>;
@@ -76,7 +82,7 @@ function parseInline(text: string): Segment[] {
   return segments;
 }
 
-function MarkdownText({ text, style }: { text: string; style?: any }) {
+function MarkdownText({ text, style, bulletColor }: { text: string; style?: any; bulletColor?: string }) {
   // Split into lines first for headings / bullets / code blocks
   const lines = text.split("\n");
   const elements: React.ReactNode[] = [];
@@ -121,7 +127,7 @@ function MarkdownText({ text, style }: { text: string; style?: any }) {
     if (bulletMatch) {
       elements.push(
         <View key={`li-${li}`} style={mdStyles.bulletRow}>
-          <Text style={[style, mdStyles.bulletDot]}>•</Text>
+          <Text style={[style, mdStyles.bulletDot, bulletColor ? { color: bulletColor } : undefined]}>•</Text>
           <InlineSegments text={bulletMatch[1]} style={style} />
         </View>
       );
@@ -171,7 +177,8 @@ function InlineSegments({ text, style }: { text: string; style?: any }) {
           case "bold":   return <Text key={i} style={mdStyles.bold}>{seg.value}</Text>;
           case "italic": return <Text key={i} style={mdStyles.italic}>{seg.value}</Text>;
           case "code":   return <Text key={i} style={mdStyles.inlineCode}>{seg.value}</Text>;
-          default:       return <Text key={i}>{seg.value}</Text>;
+          case "newline": return <Text key={i}>{"\n"}</Text>;
+          default:       return <Text key={i}>{"value" in seg ? seg.value : ""}</Text>;
         }
       })}
     </Text>
@@ -207,6 +214,14 @@ const TOOL_LABELS: Record<string, { icon: string; label: string; color: string }
   request_photo_search:          { icon: "images-outline",       label: "Searching photos",     color: "#38BDF8" },
   send_sms:                      { icon: "chatbubble-outline",   label: "Sending message",      color: "#34D399" },
   lookup_phone_for_person:       { icon: "call-outline",         label: "Looking up number",    color: "#34D399" },
+  generate_music:                { icon: "musical-notes-outline", label: "Generating music",    color: "#D4A853" },
+  generate_audio:                { icon: "musical-notes-outline", label: "Generating audio",    color: "#D4A853" },
+  generate_image:                { icon: "image-outline",         label: "Generating image",    color: "#F472B6" },
+  search_restaurants:            { icon: "restaurant-outline",    label: "Searching restaurants", color: "#FB923C" },
+  make_reservation:              { icon: "restaurant-outline",    label: "Making reservation",  color: "#FB923C" },
+  execute_skill:                 { icon: "flash-outline",         label: "Running skill",       color: "#A78BFA" },
+  set_reminder:                  { icon: "alarm-outline",         label: "Setting reminder",    color: "#FBBF24" },
+  run_code:                      { icon: "code-slash-outline",    label: "Running code",        color: "#6EE7B7" },
 };
 
 function ToolCard({
@@ -221,6 +236,7 @@ function ToolCard({
   isThinking?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const { colors } = useTheme();
   const meta = TOOL_LABELS[toolName] ?? { icon: "construct-outline", label: toolName, color: colors.gold };
 
   const toggle = () => {
@@ -286,12 +302,16 @@ export default function ChatBubble({
   content,
   timestamp,
   imageBase64,
+  audioBase64,
+  audioMimeType,
   toolName,
   toolArgs,
   subAgentName,
   isThinking,
   photoUris,
 }: ChatBubbleProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createBubbleStyles(colors), [colors]);
   const isUser = role === "user";
   const isSystem = content.startsWith("[Call ") || content.startsWith("[Voice ");
 
@@ -359,19 +379,42 @@ export default function ChatBubble({
     );
   }
 
+  // Audio message (generated music)
+  if (audioBase64) {
+    return (
+      <View style={[styles.container, styles.eloraContainer]}>
+        <View style={styles.avatarContainer}>
+          <Image
+            source={appIcon}
+            style={{ width: 28, height: 28, borderRadius: 14 }}
+          />
+        </View>
+        <View style={styles.bubbleWrapper}>
+          <Text style={styles.name}>Elora</Text>
+          <View style={[styles.bubble, styles.eloraBubble]}>
+            <AudioPlayer
+              audioBase64={audioBase64}
+              mimeType={audioMimeType}
+              caption={content || undefined}
+            />
+          </View>
+          <Text style={[styles.time, styles.eloraTime]}>
+            {timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   // Normal message bubble
   return (
     <View style={[styles.container, isUser ? styles.userContainer : styles.eloraContainer]}>
       {!isUser && (
         <View style={styles.avatarContainer}>
-          <LinearGradient
-            colors={colors.gradientGold as [string, string]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.avatar}
-          >
-            <Text style={styles.avatarText}>E</Text>
-          </LinearGradient>
+          <Image
+            source={appIcon}
+            style={{ width: 28, height: 28, borderRadius: 14 }}
+          />
         </View>
       )}
       <View style={[styles.bubbleWrapper, isUser && { alignItems: "flex-end" }]}>
@@ -380,7 +423,7 @@ export default function ChatBubble({
           {isUser ? (
             <Text style={styles.userText}>{content}</Text>
           ) : (
-            <MarkdownText text={content} style={styles.eloraText} />
+            <MarkdownText text={content} style={styles.eloraText} bulletColor={colors.gold} />
           )}
         </View>
         {/* Photo search results grid — shown below the bubble */}
@@ -406,12 +449,12 @@ const mdStyles = StyleSheet.create({
   inlineCode: {
     fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
     fontSize: 13,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(0,0,0,0.06)",
     paddingHorizontal: 4,
     borderRadius: 3,
   },
   codeBlock: {
-    backgroundColor: "rgba(0,0,0,0.35)",
+    backgroundColor: "rgba(0,0,0,0.06)",
     borderRadius: 6,
     padding: 10,
     marginVertical: 6,
@@ -419,18 +462,18 @@ const mdStyles = StyleSheet.create({
   codeBlockText: {
     fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
     fontSize: 12,
-    color: "#C5CBE0",
+    color: "#4A5568",
     lineHeight: 18,
   },
   bulletRow: { flexDirection: "row", gap: 6, marginVertical: 1 },
-  bulletDot: { color: colors.gold, fontWeight: "700", minWidth: 16 },
+  bulletDot: { fontWeight: "700", minWidth: 16 },
 });
 
 const toolStyles = StyleSheet.create({
   card: {
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: "rgba(0,0,0,0.03)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(0,0,0,0.06)",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -454,29 +497,30 @@ const toolStyles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   agentBadge: {
-    backgroundColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "rgba(0,0,0,0.04)",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   agentBadgeText: {
     fontSize: 10,
-    color: colors.textTertiary,
+    color: "#9CA3AF",
     fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
   },
   detail: {
     marginTop: 8,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.06)",
+    borderTopColor: "rgba(0,0,0,0.04)",
     paddingTop: 6,
     gap: 3,
   },
   detailRow: { flexDirection: "row", flexWrap: "wrap" },
-  detailKey: { fontSize: 11, color: colors.textTertiary, fontWeight: "600" },
-  detailVal: { fontSize: 11, color: colors.textSecondary, flex: 1 },
+  detailKey: { fontSize: 11, color: "#9CA3AF", fontWeight: "600" },
+  detailVal: { fontSize: 11, color: "#6B7280", flex: 1 },
 });
 
-const styles = StyleSheet.create({
+function createBubbleStyles(colors: any) {
+  return StyleSheet.create({
   container: {
     paddingHorizontal: 16,
     paddingVertical: 3,
@@ -518,3 +562,4 @@ const styles = StyleSheet.create({
   },
   photoCaptionText: { color: "#FFF", fontSize: 14 },
 });
+}

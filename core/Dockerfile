@@ -11,9 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install agent dependencies (includes shared tool deps, NO google-adk to avoid conflicts)
-COPY requirements-agent.txt ./
-RUN pip install --no-cache-dir -r requirements-agent.txt
+# Install all dependencies (agent + adk + main app)
+COPY requirements.txt requirements-agent.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright for browser_worker tool
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
@@ -22,5 +22,5 @@ RUN pip install --no-cache-dir playwright && playwright install chromium
 # Copy all source
 COPY . .
 
-# LiveKit agent entrypoint
-CMD ["python", "livekit_agent.py", "start"]
+# FastAPI server
+CMD ["python", "main.py"]

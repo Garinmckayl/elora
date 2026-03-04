@@ -20,3 +20,8 @@ livekit-api>=1.0.7,<2
 # NOTE: livekit-agents is here ONLY so the LiveKit CLI detects this as an agent project.
 # The actual agent uses Dockerfile.agent which installs requirements-agent.txt instead.
 livekit-agents[google]==1.4.3
+# memU - Proactive memory engine (10x lower always-on cost, 92% Locomo accuracy)
+
+# Google AI multimodal features
+# Lyria 3 (music), Imagen 3 (images), TTS - all via google-genai
+# bust cache 1772624345

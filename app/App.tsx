@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
   StyleSheet,
   Text,
@@ -11,6 +11,7 @@ import {
   Alert,
   Modal,
   Animated,
+  Image,
 } from "react-native";
 import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -34,8 +35,76 @@ import { Toast } from "./src/components/Toast";
 import LiveCallScreen from "./src/components/LiveCallScreen";
 import OnboardingScreen from "./src/screens/OnboardingScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
-import { colors, spacing, borderRadius, shadows } from "./src/theme";
+import { colors as defaultColors, spacing, borderRadius, shadows as defaultShadows, ThemeProvider, useTheme } from "./src/theme";
 import { WS_URL, BACKEND_URL } from "./src/config";
+
+// Check if Firebase is configured (has API key set)
+function firebaseConfigured(): boolean {
+  return !!(process.env.EXPO_PUBLIC_FIREBASE_API_KEY);
+}
+
+// Simple Sign-In screen
+function SignInScreen({ onSignIn }: { onSignIn: () => Promise<void> }) {
+  const [loading, setLoading] = useState(false);
+  const { colors, shadows } = useTheme();
+
+  const handleSignIn = async () => {
+    setLoading(true);
+    try {
+      await onSignIn();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar style="dark" />
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 40 }}>
+        <LinearGradient
+          colors={colors.gradientGoldSoft as [string, string]}
+          style={{ position: "absolute", width: 200, height: 200, borderRadius: 100 }}
+        />
+        <Image
+          source={require("./assets/icons/app-icon-1024.png")}
+          style={{ width: 80, height: 80, borderRadius: 28, ...shadows.gold }}
+        />
+        <Text style={{ color: colors.textPrimary, fontSize: 28, fontWeight: "700", marginTop: 24, letterSpacing: -0.5 }}>
+          Welcome to Elora
+        </Text>
+        <Text style={{ color: colors.textSecondary, fontSize: 15, textAlign: "center", marginTop: 8, lineHeight: 22 }}>
+          Your personal AI agent. Sign in with Google to get started.
+        </Text>
+        <TouchableOpacity
+          onPress={handleSignIn}
+          disabled={loading}
+          activeOpacity={0.8}
+          style={{ marginTop: 40, width: "100%" }}
+        >
+          <LinearGradient
+            colors={colors.gradientGold as [string, string]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              paddingVertical: 16,
+              borderRadius: borderRadius.full,
+              gap: 10,
+              ...shadows.gold,
+            }}
+          >
+            <Ionicons name="logo-google" size={20} color={colors.background} />
+            <Text style={{ color: colors.background, fontSize: 17, fontWeight: "700" }}>
+              {loading ? "Signing in..." : "Continue with Google"}
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+}
 
 // Cloud Run backend URL
 const SERVER_URL = WS_URL;
@@ -48,11 +117,20 @@ function uid(prefix = "m"): string {
 }
 
 export default function App() {
+  return (
+    <ThemeProvider>
+      <AppInner />
+    </ThemeProvider>
+  );
+}
+
+function AppInner() {
+  const { colors, shadows, isDark } = useTheme();
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const [showSettings, setShowSettings] = useState(false);
 
   // Lift Firebase auth to App level so SettingsScreen gets the real userId
-  const { uid, idToken, loading: authLoading } = useFirebaseAuth();
+  const { uid, idToken, loading: authLoading, user: authUser, signIn, signOut } = useFirebaseAuth();
   const userId = uid ?? "anonymous";
 
   // Check if onboarding was completed
@@ -96,27 +174,46 @@ export default function App() {
     );
   }
 
+  // Show sign-in screen if user is not authenticated
+  // (Firebase config is set but no user signed in)
+  if (!authLoading && !authUser && firebaseConfigured()) {
+    return (
+      <SafeAreaProvider>
+        <SignInScreen onSignIn={signIn} />
+      </SafeAreaProvider>
+    );
+  }
+
   if (showSettings) {
     return (
       <SafeAreaProvider>
-        <SettingsScreen onClose={() => setShowSettings(false)} userId={userId} />
+        <SettingsScreen
+          onClose={() => setShowSettings(false)}
+          userId={userId}
+          user={authUser}
+          onSignIn={signIn}
+          onSignOut={signOut}
+        />
       </SafeAreaProvider>
     );
   }
 
   return (
     <SafeAreaProvider>
-      <MainScreen onOpenSettings={() => setShowSettings(true)} appUserId={userId} appIdToken={idToken} />
+      <MainScreen onOpenSettings={() => setShowSettings(true)} appUserId={userId} appIdToken={idToken} isDark={isDark} colors={colors} shadows={shadows} />
     </SafeAreaProvider>
   );
 }
 
 // -- Main Chat/Voice Screen --
 
-function MainScreen({ onOpenSettings, appUserId, appIdToken }: { onOpenSettings: () => void; appUserId: string; appIdToken?: string | null }) {
+function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, shadows }: { onOpenSettings: () => void; appUserId: string; appIdToken?: string | null; isDark: boolean; colors: any; shadows: any }) {
   // Firebase auth is now lifted to App level — receive userId and idToken as props
   const userId = appUserId;
   const idToken = appIdToken ?? null;
+
+  // Compute styles dynamically based on current theme colors
+  const styles = useMemo(() => createStyles(colors, shadows), [colors, shadows]);
 
   // Toast notifications for errors and connection state
   const { toasts, showToast, dismissToast } = useToast();
@@ -538,6 +635,8 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken }: { onOpenSettings:
       content={item.content}
       timestamp={item.timestamp}
       imageBase64={item.imageBase64}
+      audioBase64={item.audioBase64}
+      audioMimeType={item.audioMimeType}
       toolName={item.toolName}
       toolArgs={item.toolArgs}
       subAgentName={item.subAgentName}
@@ -566,7 +665,7 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken }: { onOpenSettings:
   if (inCall) {
     return (
       <>
-        <StatusBar style="light" />
+        <StatusBar style={isDark ? "light" : "dark"} />
         <LiveCallScreen
           cameraRef={liveCameraRef}
           isListening={isListening}
@@ -622,20 +721,21 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken }: { onOpenSettings:
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style={isDark ? "light" : "dark"} />
 
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
+          {showChat && (
+            <TouchableOpacity onPress={() => setShowChat(false)} style={styles.headerButton}>
+              <Ionicons name="home-outline" size={22} color={colors.textSecondary} />
+            </TouchableOpacity>
+          )}
           <View style={styles.headerBrand}>
-            <LinearGradient
-              colors={colors.gradientGold as [string, string]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.headerLogo}
-            >
-              <Text style={styles.headerLogoText}>E</Text>
-            </LinearGradient>
+            <Image
+              source={require("./assets/icons/app-icon-1024.png")}
+              style={styles.headerLogoImage}
+            />
             <View>
               <Text style={styles.headerTitle}>Elora</Text>
               <View style={styles.statusRow}>
@@ -711,172 +811,182 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken }: { onOpenSettings:
         />
       )}
 
-      {/* Messages */}
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        renderItem={renderMessage}
-        keyExtractor={(item) => item.id}
-        style={styles.messageList}
-        contentContainerStyle={styles.messageListContent}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <LinearGradient
-              colors={colors.gradientGoldSoft as [string, string]}
-              style={styles.emptyGlow}
-            />
-            <LinearGradient
-              colors={colors.gradientGold as [string, string]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.emptyIcon}
-            >
-              <Ionicons name="sparkles" size={36} color={colors.background} />
-            </LinearGradient>
-            <Text style={styles.emptyTitle}>
-              {userName ? `Hey, ${userName.split(" ")[0]}` : "Hey, I'm Elora"}
-            </Text>
-            <Text style={styles.emptySubtitle}>
-              {showChat
-                ? "Type a message to get started"
-                : "Hold the mic to talk, or start a call"}
-            </Text>
-            <View style={styles.capabilitiesRow}>
-              {[
-                { icon: "mail-outline" as const, label: "Email" },
-                { icon: "calendar-outline" as const, label: "Calendar" },
-                { icon: "search-outline" as const, label: "Search" },
-                { icon: "eye-outline" as const, label: "Vision" },
-              ].map((cap) => (
-                <View key={cap.label} style={styles.capabilityChip}>
-                  <Ionicons name={cap.icon} size={14} color={colors.gold} />
-                  <Text style={styles.capabilityText}>{cap.label}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        }
-      />
-
-      {/* Speaking / Thinking indicator */}
-      {(showThinking || livekit.isSpeaking) && (
-        <Animated.View style={[styles.indicatorContainer, {
-          opacity: livekit.isSpeaking
-            ? speakingAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] })
-            : 1,
-        }]}>
-          <LinearGradient
-            colors={livekit.isSpeaking
-              ? ["rgba(212, 168, 83, 0.15)", "rgba(212, 168, 83, 0.05)"]
-              : ["rgba(155, 163, 184, 0.1)", "rgba(155, 163, 184, 0.02)"]
-            }
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.indicatorGradient}
-          >
-            <Ionicons
-              name={livekit.isSpeaking ? "volume-medium-outline" : "ellipsis-horizontal"}
-              size={16}
-              color={livekit.isSpeaking ? colors.gold : colors.textSecondary}
-            />
-            <Text style={[styles.indicatorText, livekit.isSpeaking && { color: colors.gold }]}>
-              {livekit.isSpeaking ? "Elora is speaking..." : "Elora is thinking..."}
-            </Text>
-          </LinearGradient>
-        </Animated.View>
-      )}
-
-      {/* Input Area */}
+      {/* Messages + Input wrapped in KeyboardAvoidingView */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.inputArea}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+        style={{ flex: 1 }}
       >
-        {showChat ? (
-          /* Text input mode */
-          <View style={styles.textInputContainer}>
-            <View style={styles.textInputWrapper}>
-              <TextInput
-                style={styles.textInput}
-                value={inputText}
-                onChangeText={setInputText}
-                placeholder="Message Elora..."
-                placeholderTextColor={colors.textTertiary}
-                returnKeyType="send"
-                onSubmitEditing={handleSend}
-                multiline
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderMessage}
+          keyExtractor={(item) => item.id}
+          style={styles.messageList}
+          contentContainerStyle={styles.messageListContent}
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <LinearGradient
+                colors={colors.gradientGoldSoft as [string, string]}
+                style={styles.emptyGlow}
               />
-              <TouchableOpacity
-                onPress={handleSend}
-                style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
-                disabled={!inputText.trim()}
+              <LinearGradient
+                colors={colors.gradientGold as [string, string]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.emptyIcon}
               >
-                <LinearGradient
-                  colors={inputText.trim() ? colors.gradientGold as [string, string] : [colors.surfaceLight, colors.surfaceLight]}
-                  style={styles.sendButtonInner}
-                >
-                  <Ionicons
-                    name="arrow-up"
-                    size={20}
-                    color={inputText.trim() ? colors.background : colors.textTertiary}
-                  />
-                </LinearGradient>
-              </TouchableOpacity>
+                <Ionicons name="sparkles" size={36} color={colors.background} />
+              </LinearGradient>
+              <Text style={styles.emptyTitle}>
+                {userName ? `Hey, ${userName.split(" ")[0]}` : "Hey, I'm Elora"}
+              </Text>
+              <Text style={styles.emptySubtitle}>
+                {showChat
+                  ? "Type a message to get started"
+                  : "Hold the mic to talk, or start a call"}
+              </Text>
+              <View style={styles.capabilitiesRow}>
+                {[
+                  { icon: "mail-outline" as const, label: "Email" },
+                  { icon: "calendar-outline" as const, label: "Calendar" },
+                  { icon: "search-outline" as const, label: "Search" },
+                  { icon: "eye-outline" as const, label: "Vision" },
+                ].map((cap) => (
+                  <View key={cap.label} style={styles.capabilityChip}>
+                    <Ionicons name={cap.icon} size={14} color={colors.gold} />
+                    <Text style={styles.capabilityText}>{cap.label}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
-          </View>
-        ) : (
-          /* Voice mode */
-          <View style={styles.voiceContainer}>
-            <View style={styles.voiceControls}>
-              {/* Call / Hang-up button */}
-              <TouchableOpacity
-                style={inCall ? styles.hangUpButton : styles.callButton}
-                onPress={handleCallToggle}
-                disabled={!anyConnected}
-              >
-                <Ionicons
-                  name={inCall ? "call" : "call-outline"}
-                  size={inCall ? 26 : 22}
-                  color={inCall ? "#FFFFFF" : colors.success}
-                />
-              </TouchableOpacity>
+          }
+        />
 
-              {/* Mic button (hold to talk) */}
-              <VoiceButton
-                isListening={isListening}
-                isThinking={isThinking || livekit.isSpeaking}
-                onPressIn={handleVoicePressIn}
-                onPressOut={handleVoicePressOut}
-                disabled={!anyConnected}
+        {/* Speaking / Thinking indicator */}
+        {(showThinking || livekit.isSpeaking) && (
+          <Animated.View style={[styles.indicatorContainer, {
+            opacity: livekit.isSpeaking
+              ? speakingAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] })
+              : 1,
+          }]}>
+            <LinearGradient
+              colors={livekit.isSpeaking
+                ? ["rgba(212, 168, 83, 0.15)", "rgba(212, 168, 83, 0.05)"]
+                : ["rgba(155, 163, 184, 0.1)", "rgba(155, 163, 184, 0.02)"]
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.indicatorGradient}
+            >
+              <Ionicons
+                name={livekit.isSpeaking ? "volume-medium-outline" : "ellipsis-horizontal"}
+                size={16}
+                color={livekit.isSpeaking ? colors.gold : colors.textSecondary}
               />
+              <Text style={[styles.indicatorText, livekit.isSpeaking && { color: colors.gold }]}>
+                {livekit.isSpeaking ? "Elora is speaking..." : "Elora is thinking..."}
+              </Text>
+            </LinearGradient>
+          </Animated.View>
+        )}
 
-              {/* Chat shortcut */}
-              <TouchableOpacity
-                style={styles.chatShortcutButton}
-                onPress={() => setShowChat(true)}
-              >
-                <Ionicons name="chatbubble-outline" size={22} color={colors.textSecondary} />
-              </TouchableOpacity>
-
-              {/* Live camera toggle (only shown during a call) */}
-              {inCall && (
+        {/* Input Area */}
+        <View style={styles.inputArea}>
+          {showChat ? (
+            /* Text input mode */
+            <View style={styles.textInputContainer}>
+              <View style={styles.textInputWrapper}>
+                <TextInput
+                  style={styles.textInput}
+                  value={inputText}
+                  onChangeText={setInputText}
+                  placeholder="Message Elora..."
+                  placeholderTextColor={colors.textTertiary}
+                  returnKeyType="send"
+                  onSubmitEditing={handleSend}
+                  onFocus={() => {
+                    setTimeout(() => {
+                      flatListRef.current?.scrollToEnd({ animated: true });
+                    }, 300);
+                  }}
+                  multiline
+                />
                 <TouchableOpacity
-                  style={[
-                    styles.cameraToggleButton,
-                    liveCamera && styles.cameraToggleActive,
-                  ]}
-                  onPress={handleLiveCameraToggle}
+                  onPress={handleSend}
+                  style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
+                  disabled={!inputText.trim()}
+                >
+                  <LinearGradient
+                    colors={inputText.trim() ? colors.gradientGold as [string, string] : [colors.surfaceLight, colors.surfaceLight]}
+                    style={styles.sendButtonInner}
+                  >
+                    <Ionicons
+                      name="arrow-up"
+                      size={20}
+                      color={inputText.trim() ? colors.background : colors.textTertiary}
+                    />
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            /* Voice mode */
+            <View style={styles.voiceContainer}>
+              <View style={styles.voiceControls}>
+                {/* Call / Hang-up button */}
+                <TouchableOpacity
+                  style={inCall ? styles.hangUpButton : styles.callButton}
+                  onPress={handleCallToggle}
+                  disabled={!anyConnected}
                 >
                   <Ionicons
-                    name={liveCamera ? "videocam" : "videocam-outline"}
-                    size={20}
-                    color={liveCamera ? colors.gold : colors.textSecondary}
+                    name={inCall ? "call" : "call-outline"}
+                    size={inCall ? 26 : 22}
+                    color={inCall ? "#FFFFFF" : colors.success}
                   />
                 </TouchableOpacity>
-              )}
+
+                {/* Mic button (hold to talk) */}
+                <VoiceButton
+                  isListening={isListening}
+                  isThinking={isThinking || livekit.isSpeaking}
+                  onPressIn={handleVoicePressIn}
+                  onPressOut={handleVoicePressOut}
+                  disabled={!anyConnected}
+                />
+
+                {/* Chat shortcut */}
+                <TouchableOpacity
+                  style={styles.chatShortcutButton}
+                  onPress={() => setShowChat(true)}
+                >
+                  <Ionicons name="chatbubble-outline" size={22} color={colors.textSecondary} />
+                </TouchableOpacity>
+
+                {/* Live camera toggle (only shown during a call) */}
+                {inCall && (
+                  <TouchableOpacity
+                    style={[
+                      styles.cameraToggleButton,
+                      liveCamera && styles.cameraToggleActive,
+                    ]}
+                    onPress={handleLiveCameraToggle}
+                  >
+                    <Ionicons
+                      name={liveCamera ? "videocam" : "videocam-outline"}
+                      size={20}
+                      color={liveCamera ? colors.gold : colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
+              <Text style={styles.voiceHint}>{voiceHintText}</Text>
             </View>
-            <Text style={styles.voiceHint}>{voiceHintText}</Text>
-          </View>
-        )}
+          )}
+        </View>
       </KeyboardAvoidingView>
       {/* Browser task modal -- shows live screenshot stream */}
       <BrowserModal
@@ -899,7 +1009,8 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken }: { onOpenSettings:
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: any, shadows: any) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -931,6 +1042,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+  },
+  headerLogoImage: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
   },
   headerLogoText: {
     color: colors.background,
@@ -1100,6 +1216,7 @@ const styles = StyleSheet.create({
   inputArea: {
     borderTopWidth: 1,
     borderTopColor: colors.border,
+    backgroundColor: colors.background,
     paddingBottom: Platform.OS === "ios" ? 8 : 6,
   },
 
@@ -1125,6 +1242,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     maxHeight: 100,
     paddingVertical: 8,
+    // Ensure text is visible on all devices / themes
+    textAlignVertical: "center",
   },
   sendButton: {
     marginBottom: 4,
@@ -1246,3 +1365,4 @@ const styles = StyleSheet.create({
     pointerEvents: "box-none",
   },
 });
+}

@@ -4,14 +4,14 @@
     "slug": "elora",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "icon": "./assets/icons/app-icon-1024.png",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "scheme": "elora",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0A0E1A"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "supportsTablet": true,
@@ -52,7 +52,8 @@
         {
           "cameraPermission": "Elora needs camera access so she can see what you're looking at."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {

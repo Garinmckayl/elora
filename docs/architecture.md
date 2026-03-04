@@ -8,6 +8,86 @@ work for everyone — with a phone, a voice, and zero setup.
 
 ---
 
+## 🧠 MemU Integration — Proactive Memory Engine
+
+Elora integrates [MemU](https://github.com/NevaMind-AI/memU) for production-grade always-on memory with **10x lower token costs** and **92.09% Locomo benchmark accuracy**.
+
+### Why MemU?
+
+| Challenge | Traditional Approach | Elora + MemU Solution |
+|-----------|---------------------|----------------------|
+| **Always-on cost** | Continuous LLM calls for context | Dual-mode: RAG (fast, cheap) + LLM (deep reasoning on-demand) |
+| **Memory organization** | Flat vector search | Hierarchical file-system metaphor (auto-categorized) |
+| **Intent capture** | Manual commands only | Proactive extraction from conversation flow |
+| **Learning speed** | Batch processing | Continuous pipeline (real-time) |
+| **Validation** | Unverified claims | 92.09% on Locomo benchmark |
+
+### MemU Architecture in Elora
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    ELORA MEMORY LAYER                            │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                  MemU (Primary)                           │   │
+│  │                                                           │   │
+│  │  ┌─────────────────┐  ┌─────────────────┐                │   │
+│  │  │ memorize()      │  │ retrieve()      │                │   │
+│  │  │ Continuous      │  │ Dual-mode:      │                │   │
+│  │  │ Learning        │  │ • RAG (fast)    │                │   │
+│  │  │ Pipeline        │  │ • LLM (deep)    │                │   │
+│  │  └─────────────────┘  └─────────────────┘                │   │
+│  │                                                           │   │
+│  │  File System Metaphor:                                    │   │
+│  │  memory/                                                  │   │
+│  │  ├── preferences/                                         │   │
+│  │  ├── relationships/                                       │   │
+│  │  ├── knowledge/                                           │   │
+│  │  └── context/                                             │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                          │                                       │
+│                          ▼ fallback                              │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │              Firestore + Embeddings (Fallback)            │   │
+│  │              text-embedding-004, 768-dim vectors          │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### MemU API Usage
+
+```python
+from tools.memu_memory import memorize_async, retrieve_async, auto_memorise_async
+
+# Continuous learning (real-time extraction)
+await memorize_async(user_id, "User prefers morning meetings", modality="conversation")
+
+# Dual-mode retrieval
+result = await retrieve_async(user_id, "What are their scheduling preferences?", method="rag")
+
+# Proactive intent capture (MemU's killer feature)
+await auto_memorise_async(user_id, conversation_turn)
+# → Automatically extracts facts, preferences, skills, intentions
+# → Cross-references with existing memories
+# → Updates hierarchical category structure
+```
+
+### Configuration
+
+```bash
+# Production (recommended): MemU Cloud API
+export MEMU_API_KEY=your_api_key  # Get from memu.so
+export MEMU_CLOUD=true
+
+# Self-hosted: OpenAI backend
+export OPENAI_API_KEY=your_api_key
+export MEMU_CLOUD=false
+```
+
+---
+
+---
+
 ## System Overview
 
 ```

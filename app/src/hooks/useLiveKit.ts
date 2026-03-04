@@ -1,12 +1,9 @@
 /**
  * useLiveKit -- LiveKit-powered voice sessions for Elora
  *
- * Replaces useLiveSession + useLiveAudioStream with a single hook
- * that uses LiveKit's React Native SDK for WebRTC-based voice calls.
- *
- * The app fetches a room token from the backend, connects to LiveKit,
- * and the LiveKit agent (livekit_agent.py) handles Gemini Live, tools,
- * interruptions, and audio transport automatically.
+ * In Expo Go, Metro replaces livekit-client and @livekit/react-native with
+ * empty shims (see metro.config.js), so all imports resolve safely.
+ * In dev client builds, the real native modules are used.
  */
 
 import { useRef, useState, useCallback, useEffect } from "react";
@@ -14,13 +11,18 @@ import {
   Room,
   RoomEvent,
   Track,
-  RemoteTrack,
-  RemoteTrackPublication,
-  RemoteParticipant,
-  Participant,
   ConnectionState,
 } from "livekit-client";
 import { BACKEND_URL } from "../config";
+
+// AudioSession -- shimmed to no-ops in Expo Go via metro.config.js
+let _AudioSession: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  _AudioSession = require("@livekit/react-native").AudioSession;
+} catch {
+  // shim doesn't have it or something went wrong
+}
 
 interface UseLiveKitOptions {
   userId: string;
@@ -39,13 +41,12 @@ export function useLiveKit({
   onToolCall,
   onAudioEnd,
 }: UseLiveKitOptions) {
-  const roomRef = useRef<Room | null>(null);
+  const roomRef = useRef<any>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [inCall, setInCall] = useState(false);
   const connectingRef = useRef(false);
 
-  // Callbacks refs to avoid stale closures
   const onTextRef = useRef(onText);
   const onTranscriptRef = useRef(onTranscript);
   const onToolCallRef = useRef(onToolCall);
@@ -56,250 +57,158 @@ export function useLiveKit({
   useEffect(() => { onToolCallRef.current = onToolCall; }, [onToolCall]);
   useEffect(() => { onAudioEndRef.current = onAudioEnd; }, [onAudioEnd]);
 
-  /**
-   * Fetch a room token from the backend and connect to LiveKit.
-   */
   const connect = useCallback(async () => {
+    // Room is shimmed to an empty function in Expo Go -- guard against it
+    if (!Room || typeof Room !== "function" || !RoomEvent?.Connected) {
+      console.warn("[LiveKit] LiveKit not available (Expo Go shim). Voice calls require a dev client build.");
+      return;
+    }
+
     if (roomRef.current?.state === ConnectionState.Connected) {
       console.log("[LiveKit] Already connected");
       return;
     }
-    if (connectingRef.current) {
-      console.log("[LiveKit] Connection already in progress");
-      return;
-    }
+    if (connectingRef.current) return;
 
     connectingRef.current = true;
 
     try {
-      // Fetch token from backend
+      if (_AudioSession?.configureAudio) {
+        await _AudioSession.configureAudio({
+          android: {
+            audioTypeOptions: {
+              manageAudioFocus: true,
+              audioMode: "inCommunication",
+              audioFocusMode: "gain",
+              audioStreamType: "voiceCall",
+              audioAttributesUsageType: "voiceCommunication",
+              audioAttributesContentType: "speech",
+            },
+          },
+          ios: { defaultOutput: "speaker" },
+        });
+        await _AudioSession.startAudioSession();
+        console.log("[LiveKit] AudioSession started");
+      }
+
       const params = new URLSearchParams({ user_id: userId });
       if (token) params.set("token", token);
 
-      console.log("[LiveKit] Fetching token from:", `${BACKEND_URL}/livekit/token`);
-      const res = await fetch(`${BACKEND_URL}/livekit/token?${params}`, {
-        method: "POST",
-      });
+      const res = await fetch(`${BACKEND_URL}/livekit/token?${params}`, { method: "POST" });
       const data = await res.json();
 
-      if (data.error) {
-        console.error("[LiveKit] Token error:", data.error);
+      const tokenData = Array.isArray(data) ? data[0] : data;
+      if (tokenData.error || !res.ok) {
+        console.error("[LiveKit] Token error:", tokenData.error || `HTTP ${res.status}`);
+        if (_AudioSession?.stopAudioSession) await _AudioSession.stopAudioSession().catch(() => {});
         return;
       }
 
-      console.log("[LiveKit] Got token for room:", data.room, "url:", data.url);
+      console.log("[LiveKit] Got token for room:", tokenData.room);
 
-      // Create and connect to room
-      const room = new Room({
-        adaptiveStream: true,
-        dynacast: true,
-      });
+      const room = new Room({ adaptiveStream: true, dynacast: true });
 
-      // Wire up events
       room.on(RoomEvent.Connected, () => {
         console.log("[LiveKit] Connected to room");
         setIsConnected(true);
       });
 
-      room.on(RoomEvent.Disconnected, (reason) => {
-        console.log("[LiveKit] Disconnected, reason:", reason);
+      room.on(RoomEvent.Disconnected, () => {
         setIsConnected(false);
         setInCall(false);
         setIsSpeaking(false);
       });
 
-      room.on(RoomEvent.ParticipantConnected, (participant) => {
-        console.log("[LiveKit] Participant joined:", participant.identity, "isAgent:", participant.isAgent);
-      });
-
-      room.on(RoomEvent.ParticipantDisconnected, (participant) => {
-        console.log("[LiveKit] Participant left:", participant.identity);
-      });
-
-      // Handle data messages from the agent (transcripts, tool calls, etc.)
-      room.on(RoomEvent.DataReceived, (payload: Uint8Array, participant, kind, topic) => {
+      room.on(RoomEvent.DataReceived, (payload: Uint8Array) => {
         try {
-          const text = new TextDecoder().decode(payload);
-          console.log("[LiveKit] DataReceived topic:", topic, "text:", text.substring(0, 100));
-          const msg = JSON.parse(text);
-
-          if (msg.type === "transcript" && onTranscriptRef.current) {
-            onTranscriptRef.current(msg.content);
-          } else if (msg.type === "tool_call" && onToolCallRef.current) {
-            onToolCallRef.current(msg.name, msg.args || {});
-          } else if (msg.type === "text" && onTextRef.current) {
-            onTextRef.current(msg.content);
-          }
-        } catch (e) {
-          // Not JSON or not a message we care about
-        }
+          const msg = JSON.parse(new TextDecoder().decode(payload));
+          if (msg.type === "transcript") onTranscriptRef.current?.(msg.content);
+          else if (msg.type === "tool_call") onToolCallRef.current?.(msg.name, msg.args || {});
+          else if (msg.type === "text") onTextRef.current?.(msg.content);
+        } catch { /* ignore non-JSON */ }
       });
 
-      // Track agent speaking state via audio track activity
-      room.on(RoomEvent.TrackSubscribed, (
-        track: RemoteTrack,
-        publication: RemoteTrackPublication,
-        participant: RemoteParticipant,
-      ) => {
-        console.log("[LiveKit] TrackSubscribed:", track.kind, "from:", participant.identity, "isAgent:", participant.isAgent);
-        // Don't set isSpeaking here -- the track being subscribed doesn't mean audio is playing.
-        // isSpeaking is driven by ActiveSpeakersChanged or TranscriptionReceived below.
+      room.on(RoomEvent.TrackUnsubscribed, (track: any) => {
+        if (track.kind === Track.Kind?.Audio) setIsSpeaking(false);
       });
 
-      room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack, publication, participant) => {
-        console.log("[LiveKit] TrackUnsubscribed:", track.kind);
-        if (track.kind === Track.Kind.Audio) {
-          setIsSpeaking(false);
-        }
+      room.on(RoomEvent.ActiveSpeakersChanged, (speakers: any[]) => {
+        setIsSpeaking(speakers.some((s: any) => s.isAgent));
       });
 
-      // Use ActiveSpeakersChanged to detect when the agent is actually speaking
-      room.on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
-        const agentSpeaking = speakers.some((s) => s.isAgent);
-        setIsSpeaking(agentSpeaking);
-      });
-
-      // Handle agent transcription events (agent's spoken text as transcriptions)
-      // LiveKit agents send TranscriptionReceived events with the text the agent spoke.
-      // Segments arrive incrementally; we emit completed text on `final` segments.
-      room.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
-        console.log("[LiveKit] TranscriptionReceived:", segments?.length, "segments, from:", participant?.identity, "isAgent:", participant?.isAgent);
-        if (!segments || segments.length === 0) return;
-
+      room.on(RoomEvent.TranscriptionReceived, (segments: any[], participant: any) => {
+        if (!segments?.length) return;
         for (const seg of segments) {
-          console.log("[LiveKit] Segment:", JSON.stringify({ id: seg.id, text: seg.text?.substring(0, 50), final: seg.final, firstReceivedTime: seg.firstReceivedTime }));
-          if (seg.text) {
-            if (participant?.isAgent) {
-              // Agent transcription -- this is what Elora said
-              if (seg.final) {
-                onTextRef.current?.(seg.text);
-              }
-            } else {
-              // User transcription (STT of the user's speech)
-              if (seg.final) {
-                onTranscriptRef.current?.(seg.text);
-              }
-            }
-          }
+          if (!seg.text || !seg.final) continue;
+          if (participant?.isAgent) onTextRef.current?.(seg.text);
+          else onTranscriptRef.current?.(seg.text);
         }
       });
 
-      // Log all room events for debugging
-      room.on(RoomEvent.RoomMetadataChanged, (metadata) => {
-        console.log("[LiveKit] Room metadata changed:", metadata);
-      });
-
-      room.on(RoomEvent.ConnectionStateChanged, (state) => {
-        console.log("[LiveKit] ConnectionStateChanged:", state);
-      });
-
-      // Connect to the room
-      console.log("[LiveKit] Connecting to room...");
-      await room.connect(data.url, data.token);
+      await room.connect(tokenData.url, tokenData.token);
       roomRef.current = room;
-      console.log("[LiveKit] Room connected, state:", room.state);
-      console.log("[LiveKit] Local participant:", room.localParticipant.identity);
-      console.log("[LiveKit] Remote participants:", room.remoteParticipants.size);
-
+      console.log("[LiveKit] Room connected");
     } catch (e) {
-      console.error("[LiveKit] Connection error:", e, JSON.stringify(e));
+      console.error("[LiveKit] Connection error:", e);
     } finally {
       connectingRef.current = false;
     }
   }, [userId, token]);
 
-  /**
-   * Start a voice call -- publish microphone track
-   */
   const startCall = useCallback(async () => {
+    if (!Room || typeof Room !== "function" || !RoomEvent?.Connected) return;
+
     const room = roomRef.current;
-    console.log("[LiveKit] startCall -- room state:", room?.state);
-    
     if (!room || room.state !== ConnectionState.Connected) {
-      console.log("[LiveKit] Not connected, connecting first...");
       await connect();
-      // Wait a bit for the connection to establish
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(r => setTimeout(r, 500));
     }
 
     const currentRoom = roomRef.current;
-    if (!currentRoom || currentRoom.state !== ConnectionState.Connected) {
-      console.error("[LiveKit] Still not connected after connect() -- cannot start call");
-      return;
-    }
+    if (!currentRoom || currentRoom.state !== ConnectionState.Connected) return;
 
     try {
-      console.log("[LiveKit] Enabling mic...");
       await currentRoom.localParticipant.setMicrophoneEnabled(true);
       setInCall(true);
-      console.log("[LiveKit] Call started -- mic enabled");
-      console.log("[LiveKit] Remote participants:", currentRoom.remoteParticipants.size);
-      
-      // Log all remote participants
-      for (const [id, p] of currentRoom.remoteParticipants) {
-        console.log("[LiveKit] Remote participant:", id, "identity:", p.identity, "isAgent:", p.isAgent);
-      }
+      console.log("[LiveKit] Call started");
     } catch (e) {
-      console.error("[LiveKit] Failed to start call:", e, JSON.stringify(e));
+      console.error("[LiveKit] Failed to start call:", e);
     }
   }, [connect]);
 
-  /**
-   * End the call -- mute mic and optionally disconnect
-   */
   const endCall = useCallback(async () => {
     try {
-      await roomRef.current?.localParticipant.setMicrophoneEnabled(false);
-      // Also disable camera if it was on
-      await roomRef.current?.localParticipant.setCameraEnabled(false);
-    } catch (e) {
-      console.warn("[LiveKit] End call error:", e);
-    }
+      await roomRef.current?.localParticipant?.setMicrophoneEnabled(false);
+      await roomRef.current?.localParticipant?.setCameraEnabled(false);
+    } catch { /* ignore */ }
     setInCall(false);
     setIsSpeaking(false);
     onAudioEndRef.current?.();
-    console.log("[LiveKit] Call ended");
   }, []);
 
-  /**
-   * Toggle camera for proactive vision
-   */
   const toggleCamera = useCallback(async (enabled: boolean) => {
-    try {
-      await roomRef.current?.localParticipant.setCameraEnabled(enabled);
-      console.log("[LiveKit] Camera:", enabled ? "on" : "off");
-    } catch (e) {
-      console.warn("[LiveKit] Camera toggle error:", e);
-    }
+    try { await roomRef.current?.localParticipant?.setCameraEnabled(enabled); } catch { /* */ }
   }, []);
 
-  /**
-   * Toggle microphone mute
-   */
   const toggleMute = useCallback(async (muted: boolean) => {
-    try {
-      await roomRef.current?.localParticipant.setMicrophoneEnabled(!muted);
-      console.log("[LiveKit] Mic:", muted ? "muted" : "unmuted");
-    } catch (e) {
-      console.warn("[LiveKit] Mute toggle error:", e);
-    }
+    try { await roomRef.current?.localParticipant?.setMicrophoneEnabled(!muted); } catch { /* */ }
   }, []);
 
-  /**
-   * Disconnect from the room entirely
-   */
-  const disconnect = useCallback(() => {
+  const disconnect = useCallback(async () => {
     roomRef.current?.disconnect();
     roomRef.current = null;
     setIsConnected(false);
     setInCall(false);
     setIsSpeaking(false);
+    if (_AudioSession?.stopAudioSession) {
+      await _AudioSession.stopAudioSession().catch(() => {});
+    }
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       roomRef.current?.disconnect();
+      _AudioSession?.stopAudioSession?.().catch(() => {});
     };
   }, []);
 
