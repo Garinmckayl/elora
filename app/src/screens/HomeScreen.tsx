@@ -81,6 +81,7 @@ export default function HomeScreen({
   const avatarScale = useRef(new Animated.Value(0.8)).current;
   const avatarFloat = useRef(new Animated.Value(0)).current;
   const glowPulse = useRef(new Animated.Value(0.3)).current;
+  const gradientShift = useRef(new Animated.Value(0)).current;
 
   // Update time every minute
   useEffect(() => {
@@ -164,6 +165,22 @@ export default function HomeScreen({
         }),
       ])
     ).start();
+
+    // Animated gradient overlay -- subtle breathing warmth
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(gradientShift, {
+          toValue: 1,
+          duration: 4000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(gradientShift, {
+          toValue: 0,
+          duration: 4000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
   }, []);
 
   // Handle tap anywhere on canvas -> open chat
@@ -240,6 +257,22 @@ export default function HomeScreen({
         start={{ x: 0.2, y: 0 }}
         end={{ x: 0.8, y: 1 }}
       />
+
+      {/* Animated warm overlay -- breathing effect */}
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFillObject,
+          { opacity: gradientShift },
+        ]}
+        pointerEvents="none"
+      >
+        <LinearGradient
+          colors={colors.gradientWarm as [string, string]}
+          style={StyleSheet.absoluteFillObject}
+          start={{ x: 0, y: 0.3 }}
+          end={{ x: 1, y: 0.7 }}
+        />
+      </Animated.View>
 
       {/* Top -- Settings only, ultra minimal */}
       <Animated.View

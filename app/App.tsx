@@ -33,6 +33,7 @@ import VisionCapture from "./src/components/VisionCapture";
 import { BrowserModal } from "./src/components/BrowserModal";
 import { Toast } from "./src/components/Toast";
 import LiveCallScreen from "./src/components/LiveCallScreen";
+import EloraAvatar from "./components/EloraAvatar";
 import OnboardingScreen from "./src/screens/OnboardingScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 import HomeScreen from "./src/screens/HomeScreen";
@@ -131,6 +132,9 @@ function AppInner() {
   const [showSettings, setShowSettings] = useState(false);
   const [showHome, setShowHome] = useState(true);
 
+  // Intent from HomeScreen -- tells MainScreen what to do on mount
+  const [initialIntent, setInitialIntent] = useState<"chat" | "voice" | "camera" | null>(null);
+
   // Lift user name to App level so HomeScreen can use it
   const [userName, setUserName] = useState<string>("");
   useEffect(() => {
@@ -216,11 +220,16 @@ function AppInner() {
           userName={userName}
           userId={userId}
           idToken={idToken}
-          onOpenChat={() => setShowHome(false)}
+          onOpenChat={() => {
+            setInitialIntent("chat");
+            setShowHome(false);
+          }}
           onOpenVoice={() => {
+            setInitialIntent("voice");
             setShowHome(false);
           }}
           onOpenCamera={() => {
+            setInitialIntent("camera");
             setShowHome(false);
           }}
           onOpenSettings={() => setShowSettings(true)}
@@ -239,6 +248,8 @@ function AppInner() {
         colors={colors} 
         shadows={shadows}
         onBackToHome={() => setShowHome(true)}
+        initialIntent={initialIntent}
+        onIntentConsumed={() => setInitialIntent(null)}
       />
     </SafeAreaProvider>
   );
@@ -246,7 +257,7 @@ function AppInner() {
 
 // -- Main Chat/Voice Screen --
 
-function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, shadows, onBackToHome }: { onOpenSettings: () => void; appUserId: string; appIdToken?: string | null; isDark: boolean; colors: any; shadows: any; onBackToHome?: () => void }) {
+function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, shadows, onBackToHome, initialIntent, onIntentConsumed }: { onOpenSettings: () => void; appUserId: string; appIdToken?: string | null; isDark: boolean; colors: any; shadows: any; onBackToHome?: () => void; initialIntent?: "chat" | "voice" | "camera" | null; onIntentConsumed?: () => void }) {
   // Firebase auth is now lifted to App level — receive userId and idToken as props
   const userId = appUserId;
   const idToken = appIdToken ?? null;
@@ -474,6 +485,40 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
   useEffect(() => {
     livekit.connect();
   }, [livekit.connect]);
+
+  // Handle initial intent from HomeScreen (start call, open camera, or show chat)
+  useEffect(() => {
+    if (!initialIntent) return;
+    const intent = initialIntent;
+    onIntentConsumed?.();
+
+    if (intent === "voice") {
+      // Auto-start a live call
+      setTimeout(async () => {
+        if (!hasPermission) {
+          Alert.alert("Microphone Permission", "Elora needs microphone access.");
+          return;
+        }
+        setInCall(true);
+        setLastEloraText(null);
+        await livekit.startCall();
+        if (cameraPermission?.granted) {
+          setLiveCamera(true);
+          livekit.toggleCamera(true);
+        }
+        addMessage({
+          id: uid(),
+          role: "elora",
+          content: "[Call started - streaming audio]",
+          timestamp: new Date(),
+        });
+      }, 300); // Small delay so MainScreen finishes mounting
+    } else if (intent === "camera") {
+      setShowCamera(true);
+    } else if (intent === "chat") {
+      setShowChat(true);
+    }
+  }, [initialIntent]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -765,7 +810,7 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          {messages.length > 0 && onBackToHome && (
+          {onBackToHome && (
             <TouchableOpacity onPress={onBackToHome} style={styles.headerButton}>
               <Ionicons name="home-outline" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -867,13 +912,14 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
             <View style={styles.emptyState}>
+              <EloraAvatar state="happy" size="large" animated />
               <Text style={styles.emptyTitle}>
-                {userName ? `${userName.split(" ")[0]}` : "I'm Elora"}
+                {userName ? `Hey, ${userName.split(" ")[0]}` : "Hey there"}
               </Text>
               <Text style={styles.emptySubtitle}>
                 {showChat
                   ? "What's on your mind?"
-                  : "Hold to talk, or tap to type"}
+                  : "Hold to talk, or tap the chat icon to type"}
               </Text>
             </View>
           }
@@ -1137,18 +1183,19 @@ function createStyles(colors: any, shadows: any) {
     justifyContent: "center",
     paddingBottom: 80,
     paddingHorizontal: 24,
+    gap: 16,
   },
   emptyTitle: {
     color: colors.textPrimary,
-    fontSize: 34,
+    fontSize: 28,
     fontWeight: "700",
     letterSpacing: -0.5,
-    marginBottom: 8,
   },
   emptySubtitle: {
-    color: colors.textSecondary,
-    fontSize: 16,
+    color: colors.textTertiary,
+    fontSize: 15,
     textAlign: "center",
+    lineHeight: 22,
   },
 
   // -- Indicator --
