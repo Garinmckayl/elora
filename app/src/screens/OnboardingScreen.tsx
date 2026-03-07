@@ -9,7 +9,7 @@
  * Slide 5: What's your name? (name capture — the personal moment)
  */
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -24,7 +24,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, spacing, borderRadius, shadows } from "../theme";
+import { useTheme, spacing, borderRadius } from "../theme";
 
 const { width, height } = Dimensions.get("window");
 
@@ -85,6 +85,9 @@ const slides: Slide[] = [
 ];
 
 export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
+  const { colors, shadows } = useTheme();
+  const styles = useMemo(() => createStyles(colors, shadows), [colors, shadows]);
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [name, setName] = useState("");
   const flatListRef = useRef<FlatList>(null);
@@ -211,7 +214,7 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
               colors={canProceed ? colors.gradientGold as [string, string] : [colors.surfaceLight, colors.surfaceLight]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={[styles.ctaButton, canProceed ? shadows.gold : {}]}
+              style={[styles.ctaButton, canProceed ? shadows.glow : {}]}
             >
               <Text style={[styles.ctaText, !canProceed && { color: colors.textTertiary }]}>
                 {isLast ? (name.trim() ? `Let's go, ${name.trim().split(" ")[0]}` : "Enter your name") : "Next"}
@@ -231,125 +234,127 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  skipButton: {
-    position: "absolute",
-    top: 60,
-    right: 24,
-    zIndex: 10,
-    padding: 8,
-  },
-  skipText: {
-    color: colors.textSecondary,
-    fontSize: 16,
-    fontWeight: "500",
-  },
-  slide: {
-    width,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 40,
-    paddingTop: height * 0.12,
-  },
-  iconContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 40,
-  },
-  iconGlow: {
-    position: "absolute",
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-  },
-  iconCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  title: {
-    fontSize: 34,
-    fontWeight: "700",
-    color: colors.textPrimary,
-    textAlign: "center",
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 18,
-    fontWeight: "500",
-    color: colors.gold,
-    textAlign: "center",
-    marginTop: 8,
-  },
-  description: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: colors.textSecondary,
-    textAlign: "center",
-    marginTop: 20,
-  },
-  nameInputContainer: {
-    width: "100%",
-    marginTop: 32,
-    alignItems: "center",
-  },
-  nameInput: {
-    width: "100%",
-    backgroundColor: "rgba(255,255,255,0.07)",
-    borderWidth: 1.5,
-    borderColor: colors.gold,
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    fontSize: 22,
-    fontWeight: "600",
-    color: colors.textPrimary,
-    textAlign: "center",
-  },
-  namePreview: {
-    marginTop: 16,
-    fontSize: 15,
-    color: colors.textSecondary,
-    fontStyle: "italic",
-  },
-  bottomSection: {
-    paddingBottom: 50,
-    paddingHorizontal: 40,
-    alignItems: "center",
-    gap: 28,
-  },
-  dotsContainer: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.textTertiary,
-  },
-  dotActive: {
-    backgroundColor: colors.gold,
-    width: 24,
-  },
-  ctaButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 40,
-    paddingVertical: 16,
-    borderRadius: borderRadius.full,
-    gap: 8,
-    minWidth: 220,
-  },
-  ctaText: {
-    color: colors.background,
-    fontSize: 18,
-    fontWeight: "700",
-  },
-});
+function createStyles(colors: any, shadows: any) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    skipButton: {
+      position: "absolute",
+      top: 60,
+      right: 24,
+      zIndex: 10,
+      padding: 8,
+    },
+    skipText: {
+      color: colors.textSecondary,
+      fontSize: 16,
+      fontWeight: "500",
+    },
+    slide: {
+      width,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 40,
+      paddingTop: height * 0.12,
+    },
+    iconContainer: {
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 40,
+    },
+    iconGlow: {
+      position: "absolute",
+      width: 160,
+      height: 160,
+      borderRadius: 80,
+    },
+    iconCircle: {
+      width: 96,
+      height: 96,
+      borderRadius: 48,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    title: {
+      fontSize: 34,
+      fontWeight: "700",
+      color: colors.textPrimary,
+      textAlign: "center",
+      letterSpacing: -0.5,
+    },
+    subtitle: {
+      fontSize: 18,
+      fontWeight: "500",
+      color: colors.gold,
+      textAlign: "center",
+      marginTop: 8,
+    },
+    description: {
+      fontSize: 16,
+      lineHeight: 24,
+      color: colors.textSecondary,
+      textAlign: "center",
+      marginTop: 20,
+    },
+    nameInputContainer: {
+      width: "100%",
+      marginTop: 32,
+      alignItems: "center",
+    },
+    nameInput: {
+      width: "100%",
+      backgroundColor: colors.surfaceLight,
+      borderWidth: 1.5,
+      borderColor: colors.gold,
+      borderRadius: borderRadius.lg,
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      fontSize: 22,
+      fontWeight: "600",
+      color: colors.textPrimary,
+      textAlign: "center",
+    },
+    namePreview: {
+      marginTop: 16,
+      fontSize: 15,
+      color: colors.textSecondary,
+      fontStyle: "italic",
+    },
+    bottomSection: {
+      paddingBottom: 50,
+      paddingHorizontal: 40,
+      alignItems: "center",
+      gap: 28,
+    },
+    dotsContainer: {
+      flexDirection: "row",
+      gap: 8,
+    },
+    dot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.textTertiary,
+    },
+    dotActive: {
+      backgroundColor: colors.gold,
+      width: 24,
+    },
+    ctaButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 40,
+      paddingVertical: 16,
+      borderRadius: borderRadius.full,
+      gap: 8,
+      minWidth: 220,
+    },
+    ctaText: {
+      color: colors.background,
+      fontSize: 18,
+      fontWeight: "700",
+    },
+  });
+}

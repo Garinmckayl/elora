@@ -5,10 +5,10 @@
  * Supports: error (red), warning (amber), success (green), info (default).
  */
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, borderRadius } from "../theme";
+import { useTheme, borderRadius } from "../theme";
 
 export type ToastType = "error" | "warning" | "success" | "info";
 
@@ -25,14 +25,18 @@ interface ToastProps {
   onDismiss: (id: string) => void;
 }
 
-const TYPE_CONFIG: Record<ToastType, { icon: string; color: string; bg: string; border: string }> = {
-  error:   { icon: "alert-circle-outline",    color: "#FC8181", bg: "rgba(229,62,62,0.12)",   border: "rgba(229,62,62,0.3)" },
-  warning: { icon: "warning-outline",         color: "#F6AD55", bg: "rgba(214,158,46,0.12)", border: "rgba(214,158,46,0.3)" },
-  success: { icon: "checkmark-circle-outline",color: "#68D391", bg: "rgba(72,187,120,0.12)", border: "rgba(72,187,120,0.3)" },
-  info:    { icon: "information-circle-outline",color: colors.textSecondary, bg: "rgba(155,163,184,0.1)", border: "rgba(155,163,184,0.2)" },
-};
+function getTypeConfig(textSecondary: string): Record<ToastType, { icon: string; color: string; bg: string; border: string }> {
+  return {
+    error:   { icon: "alert-circle-outline",    color: "#FC8181", bg: "rgba(229,62,62,0.12)",   border: "rgba(229,62,62,0.3)" },
+    warning: { icon: "warning-outline",         color: "#F6AD55", bg: "rgba(214,158,46,0.12)", border: "rgba(214,158,46,0.3)" },
+    success: { icon: "checkmark-circle-outline",color: "#68D391", bg: "rgba(72,187,120,0.12)", border: "rgba(72,187,120,0.3)" },
+    info:    { icon: "information-circle-outline",color: textSecondary, bg: "rgba(155,163,184,0.1)", border: "rgba(155,163,184,0.2)" },
+  };
+}
 
 export function Toast({ toast, onDismiss }: ToastProps) {
+  const { colors } = useTheme();
+  const TYPE_CONFIG = useMemo(() => getTypeConfig(colors.textSecondary), [colors.textSecondary]);
   const cfg = TYPE_CONFIG[toast.type];
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-20)).current;
@@ -66,7 +70,7 @@ export function Toast({ toast, onDismiss }: ToastProps) {
       <View style={styles.textContainer}>
         <Text style={[styles.title, { color: cfg.color }]} numberOfLines={1}>{toast.title}</Text>
         {toast.message ? (
-          <Text style={styles.message} numberOfLines={2}>{toast.message}</Text>
+          <Text style={[styles.message, { color: colors.textSecondary }]} numberOfLines={2}>{toast.message}</Text>
         ) : null}
       </View>
       <TouchableOpacity onPress={dismiss} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
@@ -99,7 +103,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   message: {
-    color: colors.textSecondary,
     fontSize: 12,
     marginTop: 2,
     lineHeight: 16,

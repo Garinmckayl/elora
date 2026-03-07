@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Image, StyleSheet } from 'react-native';
+import { useTheme } from '../src/theme';
 
 // Pre-require the GIF assets so Metro bundles them
 const AVATAR_GIFS: Record<string, any> = {
@@ -7,7 +8,7 @@ const AVATAR_GIFS: Record<string, any> = {
   happy: require('../assets/avatars/elora-happy.gif'),
   thinking: require('../assets/avatars/elora-thinking.gif'),
   working: require('../assets/avatars/elora-working.gif'),
-  speaking: require('../assets/avatars/elora-working.gif'),  // working GIF for speaking state
+  speaking: require('../assets/avatars/elora-working.gif'),
 };
 
 interface Props {
@@ -16,7 +17,8 @@ interface Props {
   animated?: boolean;
 }
 
-export default function EloraAvatar({ state = 'listening', size = 'medium', animated = true }: Props) {
+export default function EloraAvatar({ state = 'happy', size = 'medium', animated = true }: Props) {
+  const { colors } = useTheme();
   const sizeMap = { small: 40, medium: 60, large: 100 };
   const avatarSize = sizeMap[size];
   const gifSource = AVATAR_GIFS[state] || AVATAR_GIFS.happy;
@@ -29,14 +31,17 @@ export default function EloraAvatar({ state = 'listening', size = 'medium', anim
           width: avatarSize,
           height: avatarSize,
           borderRadius: avatarSize / 2,
+          borderColor: colors.gold,
+          shadowColor: colors.gold,
+          backgroundColor: colors.surface,
         }
       ]}>
         <Image
           source={gifSource}
           style={{
-            width: avatarSize - 6,
-            height: avatarSize - 6,
-            borderRadius: (avatarSize - 6) / 2,
+            width: avatarSize - 4,
+            height: avatarSize - 4,
+            borderRadius: (avatarSize - 4) / 2,
           }}
           resizeMode="cover"
         />
@@ -45,14 +50,6 @@ export default function EloraAvatar({ state = 'listening', size = 'medium', anim
   }
 
   // Fallback to colored circle if no GIF or not animated
-  const fallbackColors: Record<string, string> = {
-    listening: '#FFB800',
-    thinking: '#FF9500',
-    working: '#FF6B00',
-    happy: '#FFD400',
-    speaking: '#FF8C00',
-  };
-
   return (
     <View style={[
       styles.avatarContainer,
@@ -60,7 +57,9 @@ export default function EloraAvatar({ state = 'listening', size = 'medium', anim
         width: avatarSize,
         height: avatarSize,
         borderRadius: avatarSize / 2,
-        backgroundColor: fallbackColors[state] || fallbackColors.listening,
+        borderColor: colors.gold,
+        shadowColor: colors.gold,
+        backgroundColor: colors.goldLight,
       }
     ]} />
   );
@@ -68,16 +67,13 @@ export default function EloraAvatar({ state = 'listening', size = 'medium', anim
 
 const styles = StyleSheet.create({
   avatarContainer: {
-    borderWidth: 2,
-    borderColor: '#D4A853',
-    shadowColor: '#D4A853',
+    borderWidth: 2.5,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    backgroundColor: '#121829',
   },
 });

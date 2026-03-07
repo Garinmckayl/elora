@@ -3,7 +3,7 @@
  * Shown inline in the chat when Elora finds photos of a person
  */
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Image,
@@ -16,7 +16,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, borderRadius } from "../theme";
+import { useTheme, borderRadius } from "../theme";
 
 const { width } = Dimensions.get("window");
 const GRID_ITEM_SIZE = (width - 64 - 8) / 3; // 3 cols, 16px padding each side, 4px gap
@@ -28,6 +28,7 @@ interface PhotoGridProps {
 }
 
 export function PhotoGrid({ uris, label }: PhotoGridProps) {
+  const { colors } = useTheme();
   const [lightboxUri, setLightboxUri] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
@@ -54,7 +55,7 @@ export function PhotoGrid({ uris, label }: PhotoGridProps) {
 
   return (
     <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text>}
 
       {/* Photo grid — max 9 shown, +N overflow badge */}
       <View style={styles.grid}>
@@ -64,7 +65,7 @@ export function PhotoGrid({ uris, label }: PhotoGridProps) {
             <TouchableOpacity
               key={uri + i}
               onPress={() => openLightbox(uri, i)}
-              style={styles.cell}
+              style={[styles.cell, { backgroundColor: colors.surface }]}
               activeOpacity={0.85}
             >
               <Image source={{ uri }} style={styles.thumb} resizeMode="cover" />
@@ -122,7 +123,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   label: {
-    color: colors.textSecondary,
     fontSize: 12,
     marginBottom: 6,
     fontStyle: "italic",
@@ -137,7 +137,6 @@ const styles = StyleSheet.create({
     height: GRID_ITEM_SIZE,
     borderRadius: borderRadius.sm,
     overflow: "hidden",
-    backgroundColor: colors.surface,
   },
   thumb: {
     width: "100%",
@@ -154,7 +153,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
   },
-  // Lightbox
+  // Lightbox -- intentionally dark overlay for photo viewing
   lightboxBg: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.95)",

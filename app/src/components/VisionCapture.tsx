@@ -3,7 +3,7 @@
  * Premium Warm/Elegant design
  */
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import {
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, borderRadius, shadows } from "../theme";
+import { useTheme, borderRadius } from "../theme";
 
 interface VisionCaptureProps {
   visible: boolean;
@@ -24,6 +24,8 @@ interface VisionCaptureProps {
 }
 
 export default function VisionCapture({ visible, onClose, onCapture }: VisionCaptureProps) {
+  const { colors, shadows } = useTheme();
+  const styles = useMemo(() => createStyles(colors, shadows), [colors, shadows]);
   const [permission, requestPermission] = useCameraPermissions();
   const [isCapturing, setIsCapturing] = useState(false);
   const cameraRef = useRef<CameraView>(null);
@@ -62,7 +64,7 @@ export default function VisionCapture({ visible, onClose, onCapture }: VisionCap
             colors={colors.gradientGold as [string, string]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={styles.permissionIcon}
+            style={[styles.permissionIcon, shadows.glow]}
           >
             <Ionicons name="eye-outline" size={40} color={colors.background} />
           </LinearGradient>
@@ -111,7 +113,7 @@ export default function VisionCapture({ visible, onClose, onCapture }: VisionCap
           {/* Capture button */}
           <View style={styles.bottomBar}>
             <TouchableOpacity
-              style={[styles.captureButton, shadows.gold]}
+              style={[styles.captureButton, shadows.glow]}
               onPress={handleCapture}
               disabled={isCapturing}
             >
@@ -133,114 +135,115 @@ export default function VisionCapture({ visible, onClose, onCapture }: VisionCap
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
-  camera: {
-    flex: 1,
-    justifyContent: "space-between",
-  },
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingTop: 60,
-    paddingHorizontal: 16,
-  },
-  closeButton: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  closeButtonBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  topBarLabel: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: borderRadius.full,
-  },
-  topBarText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  bottomBar: {
-    alignItems: "center",
-    paddingBottom: 50,
-  },
-  captureButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "rgba(212, 168, 83, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 3,
-    borderColor: colors.gold,
-  },
-  captureInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  permissionContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 40,
-  },
-  permissionIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    ...shadows.gold,
-  },
-  permissionTitle: {
-    color: colors.textPrimary,
-    fontSize: 26,
-    fontWeight: "700",
-    marginTop: 24,
-  },
-  permissionText: {
-    color: colors.textSecondary,
-    fontSize: 16,
-    textAlign: "center",
-    marginTop: 12,
-    lineHeight: 24,
-  },
-  permissionButton: {
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: borderRadius.full,
-    marginTop: 28,
-  },
-  permissionButtonText: {
-    color: colors.background,
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  cancelButton: {
-    marginTop: 16,
-  },
-  cancelButtonText: {
-    color: colors.textSecondary,
-    fontSize: 16,
-  },
-});
+function createStyles(colors: any, shadows: any) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: "#000",
+    },
+    camera: {
+      flex: 1,
+      justifyContent: "space-between",
+    },
+    topBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingTop: 60,
+      paddingHorizontal: 16,
+    },
+    closeButton: {
+      width: 44,
+      height: 44,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    closeButtonBg: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    topBarLabel: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: borderRadius.full,
+    },
+    topBarText: {
+      color: "#FFFFFF",
+      fontSize: 14,
+      fontWeight: "600",
+    },
+    bottomBar: {
+      alignItems: "center",
+      paddingBottom: 50,
+    },
+    captureButton: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: `${colors.gold}33`,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 3,
+      borderColor: colors.gold,
+    },
+    captureInner: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    permissionContainer: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 40,
+    },
+    permissionIcon: {
+      width: 80,
+      height: 80,
+      borderRadius: 24,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    permissionTitle: {
+      color: colors.textPrimary,
+      fontSize: 26,
+      fontWeight: "700",
+      marginTop: 24,
+    },
+    permissionText: {
+      color: colors.textSecondary,
+      fontSize: 16,
+      textAlign: "center",
+      marginTop: 12,
+      lineHeight: 24,
+    },
+    permissionButton: {
+      paddingHorizontal: 32,
+      paddingVertical: 14,
+      borderRadius: borderRadius.full,
+      marginTop: 28,
+    },
+    permissionButtonText: {
+      color: colors.background,
+      fontSize: 16,
+      fontWeight: "700",
+    },
+    cancelButton: {
+      marginTop: 16,
+    },
+    cancelButtonText: {
+      color: colors.textSecondary,
+      fontSize: 16,
+    },
+  });
+}

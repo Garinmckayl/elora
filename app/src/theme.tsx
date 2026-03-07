@@ -1,100 +1,103 @@
 /**
- * Elora Design System -- Dual Theme (Light Default + Dark Toggle)
+ * Elora Design System -- Warm Minimalist
  *
- * Clean, premium design. Light mode is default.
+ * Inspired by: Calm, intentional, blank-canvas UX
+ * Soft gradients, warm tones, high transparency
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // ---------------------------------------------------------------------------
-// Color palettes
+// Color palettes -- Warm & Inviting
 // ---------------------------------------------------------------------------
 
 const lightColors = {
-  // Core palette
+  // Core palette -- Warm gradient background
   background: "#FFFFFF",
-  surface: "#F7F7F8",
-  surfaceLight: "#EEEEF0",
+  backgroundGradient: ["#FFFFFF", "#FFFBF5", "#FFF8F0"], // White → Pale peach
+  surface: "#FFFBF7",
+  surfaceLight: "#FFF5ED",
   surfaceElevated: "#FFFFFF",
 
-  // Gold accents
-  gold: "#B08930",
-  goldLight: "#D4A853",
-  goldDark: "#8B6914",
-  goldMuted: "rgba(176, 137, 48, 0.1)",
+  // Warm accent (replaces cold gold)
+  gold: "#F4A460", // Sandy brown -- warmer, softer
+  goldLight: "#FFB87D",
+  goldDark: "#D48845",
+  goldMuted: "rgba(244, 164, 96, 0.12)",
 
-  // Text
-  textPrimary: "#1A1A1A",
-  textSecondary: "#6B7280",
-  textTertiary: "#9CA3AF",
-  textGold: "#B08930",
+  // Text -- Softer than pure black
+  textPrimary: "#2D2D2D",
+  textSecondary: "#6B6B6B",
+  textTertiary: "#9E9E9E",
+  textGold: "#D48845",
 
-  // Accents
-  accent: "#3B82F6",
-  accentLight: "#60A5FA",
-  success: "#22C55E",
-  error: "#EF4444",
-  warning: "#F59E0B",
+  // Accents -- Muted, natural tones
+  accent: "#7FB8A0", // Sage green
+  accentLight: "#A8D5C0",
+  success: "#88C9A1",
+  error: "#E57373",
+  warning: "#FFB74D",
 
-  // Gradients
-  gradientHero: ["#FFFFFF", "#F9FAFB", "#F3F4F6"],
-  gradientGold: ["#D4A853", "#B08930"],
-  gradientGoldSoft: ["rgba(212, 168, 83, 0.15)", "rgba(212, 168, 83, 0.03)"],
-  gradientAccent: ["#3B82F6", "#2563EB"],
-  gradientDark: ["#FFFFFF", "#F9FAFB"],
+  // Gradients -- Soft & warm
+  gradientHero: ["#FFFFFF", "#FFFBF5", "#FFF8F0"],
+  gradientGold: ["#FFB87D", "#F4A460"],
+  gradientGoldSoft: ["rgba(244, 164, 96, 0.08)", "rgba(244, 164, 96, 0.02)"],
+  gradientAccent: ["#7FB8A0", "#5FA380"],
+  gradientWarm: ["#FFF5ED", "#FFEBE0"],
 
-  // Status
-  connected: "#22C55E",
-  disconnected: "#EF4444",
-  processing: "#F59E0B",
+  // Status -- Muted indicators
+  connected: "#88C9A1",
+  disconnected: "#E57373",
+  processing: "#FFB74D",
 
-  // Borders
-  border: "rgba(0, 0, 0, 0.08)",
-  borderLight: "rgba(0, 0, 0, 0.05)",
+  // Borders -- Ultra subtle
+  border: "rgba(0, 0, 0, 0.04)",
+  borderLight: "rgba(0, 0, 0, 0.02)",
 };
 
 const darkColors = {
-  // Core palette
-  background: "#0A0E1A",
-  surface: "#121829",
-  surfaceLight: "#1A2238",
-  surfaceElevated: "#1E2944",
+  // Core palette -- Warm dark mode
+  background: "#1A1816",
+  backgroundGradient: ["#1A1816", "#24201C", "#2A221E"],
+  surface: "#24201C",
+  surfaceLight: "#2A221E",
+  surfaceElevated: "#2D2622",
 
-  // Gold accents
-  gold: "#D4A853",
-  goldLight: "#E8C97A",
-  goldDark: "#B08930",
-  goldMuted: "rgba(212, 168, 83, 0.15)",
+  // Warm accent
+  gold: "#E8A96D",
+  goldLight: "#FFC48A",
+  goldDark: "#C98B5A",
+  goldMuted: "rgba(232, 169, 109, 0.15)",
 
-  // Text
-  textPrimary: "#F5F0E8",
-  textSecondary: "#9BA3B8",
-  textTertiary: "#5C6478",
-  textGold: "#D4A853",
+  // Text -- Warm off-white
+  textPrimary: "#F5F0EB",
+  textSecondary: "#B8B0A8",
+  textTertiary: "#7D7570",
+  textGold: "#E8A96D",
 
   // Accents
-  accent: "#4A7FD4",
-  accentLight: "#6B9BE0",
-  success: "#48BB78",
-  error: "#E53E3E",
-  warning: "#ECC94B",
+  accent: "#6FA390",
+  accentLight: "#8FC4B0",
+  success: "#7BC495",
+  error: "#E87B7B",
+  warning: "#FFC96D",
 
   // Gradients
-  gradientHero: ["#0A0E1A", "#121829", "#1A2238"],
-  gradientGold: ["#D4A853", "#B08930"],
-  gradientGoldSoft: ["rgba(212, 168, 83, 0.2)", "rgba(212, 168, 83, 0.05)"],
-  gradientAccent: ["#4A7FD4", "#3366BB"],
-  gradientDark: ["#0A0E1A", "#0D1220"],
+  gradientHero: ["#1A1816", "#24201C", "#2A221E"],
+  gradientGold: ["#FFC48A", "#E8A96D"],
+  gradientGoldSoft: ["rgba(232, 169, 109, 0.12)", "rgba(232, 169, 109, 0.03)"],
+  gradientAccent: ["#6FA390", "#5A8F7A"],
+  gradientWarm: ["#2A221E", "#332822"],
 
   // Status
-  connected: "#48BB78",
-  disconnected: "#E53E3E",
-  processing: "#ECC94B",
+  connected: "#7BC495",
+  disconnected: "#E87B7B",
+  processing: "#FFC96D",
 
   // Borders
-  border: "rgba(212, 168, 83, 0.12)",
-  borderLight: "rgba(155, 163, 184, 0.1)",
+  border: "rgba(232, 169, 109, 0.08)",
+  borderLight: "rgba(184, 176, 168, 0.06)",
 };
 
 export type ThemeColors = typeof lightColors;
@@ -151,51 +154,51 @@ export const borderRadius = {
   full: 999,
 };
 
-// Shadows adapt to theme
+// Shadows -- Soft, diffused, natural
 const lightShadows = {
-  gold: {
-    shadowColor: "#B08930",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-  },
   soft: {
-    shadowColor: "#000",
+    shadowColor: "#D48845",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
     elevation: 4,
   },
-  glow: {
-    shadowColor: "#B08930",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
+  medium: {
+    shadowColor: "#D48845",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
     shadowRadius: 20,
+    elevation: 8,
+  },
+  glow: {
+    shadowColor: "#F4A460",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
     elevation: 12,
   },
 };
 
 const darkShadows = {
-  gold: {
-    shadowColor: "#D4A853",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
   soft: {
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
     elevation: 4,
   },
-  glow: {
-    shadowColor: "#D4A853",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
+  medium: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
     shadowRadius: 20,
+    elevation: 8,
+  },
+  glow: {
+    shadowColor: "#E8A96D",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
     elevation: 12,
   },
 };
@@ -267,8 +270,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
 // ---------------------------------------------------------------------------
 // Legacy exports for backward compat -- uses light theme as default
-// These will be used by files that haven't migrated to useTheme() yet
+// @deprecated -- Use useTheme() hook instead. These static exports do not
+// respond to dark mode and will be removed in a future release.
 // ---------------------------------------------------------------------------
 
+/** @deprecated Use useTheme().colors instead */
 export const colors = lightColors;
+/** @deprecated Use useTheme().shadows instead */
 export const shadows = lightShadows;

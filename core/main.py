@@ -1225,6 +1225,15 @@ async def websocket_text(
                     "type": "text",
                     "content": response_text,
                 }))
+                # Fire-and-forget: extract and memorize what Elora saw in the image
+                try:
+                    image_bytes = base64.b64decode(content)
+                    asyncio.create_task(asyncio.to_thread(
+                        _memorize_image, resolved_user_id, image_bytes,
+                        message.get("prompt", ""),
+                    ))
+                except Exception:
+                    pass
 
     except WebSocketDisconnect:
         logger.info(f"[Text WS] Disconnected: user={resolved_user_id}")
@@ -1233,6 +1242,20 @@ async def websocket_text(
         await websocket.close()
     finally:
         current_user_id.reset(token_ctx)
+
+
+def _memorize_image(user_id: str, image_bytes: bytes, prompt: str = "") -> None:
+    """Fire-and-forget: extract facts from an image and store in memory."""
+    try:
+        from tools.multimodal_memory import extract_and_memorize_image_sync
+        extract_and_memorize_image_sync(
+            user_id=user_id,
+            image_bytes=image_bytes,
+            source="shared image in chat",
+            context=prompt,
+        )
+    except Exception as e:
+        logger.debug(f"[MultimodalMemory] Image memorization failed (non-critical): {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -2213,6 +2236,90 @@ async def get_user_profile(user_id: str, token: str = ""):
         return {"status": "ok", "profile": {}}
     except Exception as e:
         return {"status": "error", "error": str(e)}
+
+
+# ---------------------------------------------------------------------------
+# User context -- home screen contextual info
+# ---------------------------------------------------------------------------
+
+@app.get("/user/context")
+async def get_user_context(user_id: str, token: str = ""):
+    """
+    Returns contextual info for the HomeScreen:
+    - Last session summary (what Elora and the user talked about)
+    - Last active timestamp
+    - Memory count
+    - People count (known contacts)
+
+    Lightweight -- designed to be called on every HomeScreen mount.
+    """
+    verified_uid = verify_firebase_token(token)
+    resolved_user_id = verified_uid if verified_uid else user_id
+
+    context: dict = {
+        "last_summary": None,
+        "last_active": None,
+        "memory_count": 0,
+        "people_count": 0,
+    }
+
+    try:
+        from google.cloud import firestore as fs
+        project = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCP_PROJECT")
+        if not project:
+            return {"status": "ok", "context": context}
+
+        db = fs.Client(project=project)
+        user_ref = db.collection("users").document(resolved_user_id)
+
+        # Last session summary
+        try:
+            summaries = (
+                user_ref.collection("session_summaries")
+                .order_by("timestamp", direction=fs.Query.DESCENDING)
+                .limit(1)
+                .stream()
+            )
+            for doc in summaries:
+                data = doc.to_dict()
+                if data:
+                    context["last_summary"] = data.get("summary", "")
+                    ts = data.get("timestamp")
+                    if ts:
+                        context["last_active"] = ts.isoformat() if hasattr(ts, "isoformat") else str(ts)
+        except Exception:
+            pass
+
+        # Last active from user doc (might be more recent than last session)
+        try:
+            user_doc = user_ref.get()
+            if user_doc.exists:
+                udata = user_doc.to_dict() or {}
+                la = udata.get("last_active")
+                if la and hasattr(la, "isoformat"):
+                    context["last_active"] = la.isoformat()
+        except Exception:
+            pass
+
+        # Memory count (from memu or general memories collection)
+        try:
+            memories = user_ref.collection("memories").limit(100).stream()
+            context["memory_count"] = sum(1 for _ in memories)
+        except Exception:
+            pass
+
+        # People count
+        try:
+            people = user_ref.collection("people").limit(50).stream()
+            context["people_count"] = sum(1 for _ in people)
+        except Exception:
+            pass
+
+        return {"status": "ok", "context": context}
+
+    except Exception as e:
+        logger.error(f"[UserContext] Error: {e}")
+        return {"status": "ok", "context": context}
 
 
 # ---------------------------------------------------------------------------

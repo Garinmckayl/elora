@@ -26,7 +26,7 @@ import { CameraView } from "expo-camera";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { colors, borderRadius, shadows } from "../theme";
+import { useTheme, borderRadius } from "../theme";
 import EloraAvatar from "../../components/EloraAvatar";
 
 /** Minimal message shape — matches useElora.Message */
@@ -83,6 +83,7 @@ export default function LiveCallScreen({
   cameraFacing = "back",
   onFlipCamera,
 }: LiveCallScreenProps) {
+  const { colors, shadows } = useTheme();
   const [textInput, setTextInput] = useState("");
   const [showLog, setShowLog] = useState(true);
   const scrollRef = useRef<ScrollView>(null);
@@ -612,13 +613,13 @@ const styles = StyleSheet.create({
   orbRing1: {
     width: 120,
     height: 120,
-    borderColor: colors.gold,
+    borderColor: "#E8A96D",
     backgroundColor: "rgba(212, 168, 83, 0.08)",
   },
   orbRing2: {
     width: 180,
     height: 180,
-    borderColor: colors.gold,
+    borderColor: "#E8A96D",
     backgroundColor: "rgba(212, 168, 83, 0.04)",
     borderStyle: "dashed" as any,
   },
@@ -632,8 +633,8 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: colors.gold,
-    shadowColor: colors.gold,
+    backgroundColor: "#E8A96D",
+    shadowColor: "#E8A96D",
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 12,
@@ -725,7 +726,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.error,
+    backgroundColor: "#E57373",
   },
   timerText: {
     color: "rgba(255,255,255,0.9)",
@@ -877,7 +878,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.error,
+    backgroundColor: "#E57373",
   },
   listeningText: {
     color: "#FFFFFF",
@@ -918,7 +919,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: colors.gold,
+    backgroundColor: "#E8A96D",
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 8,
@@ -936,10 +937,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.error,
+    backgroundColor: "#E57373",
     alignItems: "center",
     justifyContent: "center",
-    ...shadows.soft,
   },
   micButton: {
     width: 64,
@@ -947,14 +947,13 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     backgroundColor: "rgba(255,255,255,0.15)",
     borderWidth: 2,
-    borderColor: colors.gold,
+    borderColor: "#E8A96D",
     alignItems: "center",
     justifyContent: "center",
   },
   micButtonActive: {
-    backgroundColor: colors.gold,
-    borderColor: colors.gold,
-    ...shadows.glow,
+    backgroundColor: "#E8A96D",
+    borderColor: "#E8A96D",
   },
   micButtonMuted: {
     backgroundColor: "rgba(255,68,68,0.15)",
@@ -971,8 +970,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   actionButtonActive: {
-    backgroundColor: colors.goldMuted,
-    borderColor: colors.gold,
+    backgroundColor: "rgba(232, 169, 109, 0.15)",
+    borderColor: "#E8A96D",
   },
 
   // Waveform

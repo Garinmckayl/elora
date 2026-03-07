@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { colors, shadows } from "../theme";
+import { useTheme } from "../theme";
 
 interface VoiceButtonProps {
   isListening: boolean;
@@ -29,6 +29,7 @@ export default function VoiceButton({
   onPressOut,
   disabled = false,
 }: VoiceButtonProps) {
+  const { colors, shadows } = useTheme();
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
   const ringScale = useRef(new Animated.Value(1)).current;
@@ -168,6 +169,10 @@ export default function VoiceButton({
     ? "ellipsis-horizontal"
     : "mic-outline";
 
+  const glowBgColor = isListening
+    ? `${colors.error}14`
+    : `${colors.gold}14`;
+
   return (
     <View style={styles.container}>
       {/* Expanding ring (listening) */}
@@ -190,9 +195,7 @@ export default function VoiceButton({
             opacity: glowAnim,
             transform: [{ scale: pulseAnim }],
             borderColor: buttonColor,
-            backgroundColor: isListening
-              ? "rgba(229, 62, 62, 0.08)"
-              : "rgba(212, 168, 83, 0.08)",
+            backgroundColor: glowBgColor,
           },
         ]}
       />
@@ -209,7 +212,7 @@ export default function VoiceButton({
             styles.button,
             { backgroundColor: buttonColor },
             isListening && shadows.glow,
-            !isListening && !isThinking && shadows.gold,
+            !isListening && !isThinking && shadows.glow,
           ]}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}

@@ -49,7 +49,6 @@ try:
         memorize as memu_memorize,
         recall as memu_recall,
         auto_memorise as memu_auto_memorise,
-        get_memu_service
     )
     MEMU_AVAILABLE = True
     logger.info("MemU proactive memory engine available")

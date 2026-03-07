@@ -35,6 +35,7 @@ import { Toast } from "./src/components/Toast";
 import LiveCallScreen from "./src/components/LiveCallScreen";
 import OnboardingScreen from "./src/screens/OnboardingScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
+import HomeScreen from "./src/screens/HomeScreen";
 import { colors as defaultColors, spacing, borderRadius, shadows as defaultShadows, ThemeProvider, useTheme } from "./src/theme";
 import { WS_URL, BACKEND_URL } from "./src/config";
 
@@ -67,7 +68,7 @@ function SignInScreen({ onSignIn }: { onSignIn: () => Promise<void> }) {
         />
         <Image
           source={require("./assets/icons/app-icon-1024.png")}
-          style={{ width: 80, height: 80, borderRadius: 28, ...shadows.gold }}
+          style={{ width: 80, height: 80, borderRadius: 28, ...shadows.glow }}
         />
         <Text style={{ color: colors.textPrimary, fontSize: 28, fontWeight: "700", marginTop: 24, letterSpacing: -0.5 }}>
           Welcome to Elora
@@ -92,7 +93,7 @@ function SignInScreen({ onSignIn }: { onSignIn: () => Promise<void> }) {
               paddingVertical: 16,
               borderRadius: borderRadius.full,
               gap: 10,
-              ...shadows.gold,
+              ...shadows.glow,
             }}
           >
             <Ionicons name="logo-google" size={20} color={colors.background} />
@@ -128,6 +129,15 @@ function AppInner() {
   const { colors, shadows, isDark } = useTheme();
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showHome, setShowHome] = useState(true);
+
+  // Lift user name to App level so HomeScreen can use it
+  const [userName, setUserName] = useState<string>("");
+  useEffect(() => {
+    AsyncStorage.getItem("elora_user_name").then((n) => {
+      if (n) setUserName(n);
+    });
+  }, []);
 
   // Lift Firebase auth to App level so SettingsScreen gets the real userId
   const { uid, idToken, loading: authLoading, user: authUser, signIn, signOut } = useFirebaseAuth();
@@ -198,16 +208,45 @@ function AppInner() {
     );
   }
 
+  // Show minimalist home screen when not in active conversation
+  if (showHome) {
+    return (
+      <SafeAreaProvider>
+        <HomeScreen
+          userName={userName}
+          userId={userId}
+          idToken={idToken}
+          onOpenChat={() => setShowHome(false)}
+          onOpenVoice={() => {
+            setShowHome(false);
+          }}
+          onOpenCamera={() => {
+            setShowHome(false);
+          }}
+          onOpenSettings={() => setShowSettings(true)}
+        />
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
-      <MainScreen onOpenSettings={() => setShowSettings(true)} appUserId={userId} appIdToken={idToken} isDark={isDark} colors={colors} shadows={shadows} />
+      <MainScreen 
+        onOpenSettings={() => setShowSettings(true)} 
+        appUserId={userId} 
+        appIdToken={idToken} 
+        isDark={isDark} 
+        colors={colors} 
+        shadows={shadows}
+        onBackToHome={() => setShowHome(true)}
+      />
     </SafeAreaProvider>
   );
 }
 
 // -- Main Chat/Voice Screen --
 
-function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, shadows }: { onOpenSettings: () => void; appUserId: string; appIdToken?: string | null; isDark: boolean; colors: any; shadows: any }) {
+function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, shadows, onBackToHome }: { onOpenSettings: () => void; appUserId: string; appIdToken?: string | null; isDark: boolean; colors: any; shadows: any; onBackToHome?: () => void }) {
   // Firebase auth is now lifted to App level — receive userId and idToken as props
   const userId = appUserId;
   const idToken = appIdToken ?? null;
@@ -726,8 +765,8 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          {showChat && (
-            <TouchableOpacity onPress={() => setShowChat(false)} style={styles.headerButton}>
+          {messages.length > 0 && onBackToHome && (
+            <TouchableOpacity onPress={onBackToHome} style={styles.headerButton}>
               <Ionicons name="home-outline" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
@@ -813,8 +852,8 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
 
       {/* Messages + Input wrapped in KeyboardAvoidingView */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
         style={{ flex: 1 }}
       >
         <FlatList
@@ -828,39 +867,14 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <LinearGradient
-                colors={colors.gradientGoldSoft as [string, string]}
-                style={styles.emptyGlow}
-              />
-              <LinearGradient
-                colors={colors.gradientGold as [string, string]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.emptyIcon}
-              >
-                <Ionicons name="sparkles" size={36} color={colors.background} />
-              </LinearGradient>
               <Text style={styles.emptyTitle}>
-                {userName ? `Hey, ${userName.split(" ")[0]}` : "Hey, I'm Elora"}
+                {userName ? `${userName.split(" ")[0]}` : "I'm Elora"}
               </Text>
               <Text style={styles.emptySubtitle}>
                 {showChat
-                  ? "Type a message to get started"
-                  : "Hold the mic to talk, or start a call"}
+                  ? "What's on your mind?"
+                  : "Hold to talk, or tap to type"}
               </Text>
-              <View style={styles.capabilitiesRow}>
-                {[
-                  { icon: "mail-outline" as const, label: "Email" },
-                  { icon: "calendar-outline" as const, label: "Calendar" },
-                  { icon: "search-outline" as const, label: "Search" },
-                  { icon: "eye-outline" as const, label: "Vision" },
-                ].map((cap) => (
-                  <View key={cap.label} style={styles.capabilityChip}>
-                    <Ionicons name={cap.icon} size={14} color={colors.gold} />
-                    <Text style={styles.capabilityText}>{cap.label}</Text>
-                  </View>
-                ))}
-              </View>
             </View>
           }
         />
@@ -1021,42 +1035,28 @@ function createStyles(colors: any, shadows: any) {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
   },
   headerBrand: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
-  headerLogo: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   headerLogoImage: {
     width: 28,
     height: 28,
     borderRadius: 14,
   },
-  headerLogoText: {
-    color: colors.background,
-    fontSize: 18,
-    fontWeight: "800",
-  },
   headerTitle: {
     color: colors.textPrimary,
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: 17,
+    fontWeight: "600",
     letterSpacing: -0.3,
   },
   statusRow: {
@@ -1076,33 +1076,30 @@ function createStyles(colors: any, shadows: any) {
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
+    gap: 4,
   },
   headerButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: colors.surface,
   },
   liveBadge: {
-    backgroundColor: "rgba(229, 62, 62, 0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(229, 62, 62, 0.3)",
+    backgroundColor: colors.goldMuted,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: borderRadius.full,
   },
   liveBadgeText: {
-    color: colors.error,
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1,
+    color: colors.gold,
+    fontSize: 9,
+    fontWeight: "600",
+    letterSpacing: 0.5,
   },
   callBadge: {
-    backgroundColor: "rgba(72, 187, 120, 0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(72, 187, 120, 0.3)",
+    backgroundColor: colors.goldMuted,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: borderRadius.full,
@@ -1111,16 +1108,16 @@ function createStyles(colors: any, shadows: any) {
     gap: 4,
   },
   callPulse: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.success,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: colors.gold,
   },
   callBadgeText: {
-    color: colors.success,
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1,
+    color: colors.gold,
+    fontSize: 9,
+    fontWeight: "600",
+    letterSpacing: 0.5,
   },
 
   // -- Messages --
@@ -1138,77 +1135,38 @@ function createStyles(colors: any, shadows: any) {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingBottom: 40,
-  },
-  emptyGlow: {
-    position: "absolute",
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    top: "30%",
-  },
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    ...shadows.gold,
+    paddingBottom: 80,
+    paddingHorizontal: 24,
   },
   emptyTitle: {
     color: colors.textPrimary,
-    fontSize: 26,
+    fontSize: 34,
     fontWeight: "700",
-    marginTop: 20,
     letterSpacing: -0.5,
+    marginBottom: 8,
   },
   emptySubtitle: {
     color: colors.textSecondary,
-    fontSize: 15,
-    marginTop: 8,
+    fontSize: 16,
     textAlign: "center",
-    paddingHorizontal: 40,
-  },
-  capabilitiesRow: {
-    flexDirection: "row",
-    marginTop: 24,
-    gap: 8,
-    flexWrap: "wrap",
-    justifyContent: "center",
-  },
-  capabilityChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: colors.goldMuted,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  capabilityText: {
-    color: colors.gold,
-    fontSize: 12,
-    fontWeight: "500",
   },
 
   // -- Indicator --
   indicatorContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 4,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
   },
   indicatorGradient: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
     borderRadius: borderRadius.full,
   },
   indicatorText: {
     color: colors.textSecondary,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "500",
   },
 
@@ -1222,19 +1180,19 @@ function createStyles(colors: any, shadows: any) {
 
   // Text input
   textInputContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
   textInputWrapper: {
     flexDirection: "row",
-    alignItems: "flex-end",
+    alignItems: "center",
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.full,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingLeft: 16,
-    paddingRight: 6,
-    paddingVertical: 4,
+    paddingLeft: 18,
+    paddingRight: 8,
+    paddingVertical: 8,
   },
   textInput: {
     flex: 1,
@@ -1242,7 +1200,6 @@ function createStyles(colors: any, shadows: any) {
     fontSize: 16,
     maxHeight: 100,
     paddingVertical: 8,
-    // Ensure text is visible on all devices / themes
     textAlignVertical: "center",
   },
   sendButton: {
@@ -1252,9 +1209,9 @@ function createStyles(colors: any, shadows: any) {
     opacity: 0.5,
   },
   sendButtonInner: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1262,37 +1219,35 @@ function createStyles(colors: any, shadows: any) {
   // Voice mode
   voiceContainer: {
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 16,
   },
   voiceControls: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 16,
+    gap: 20,
   },
   callButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "rgba(72, 187, 120, 0.12)",
-    borderWidth: 1.5,
-    borderColor: "rgba(72, 187, 120, 0.4)",
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.goldMuted,
     alignItems: "center",
     justifyContent: "center",
   },
   hangUpButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.error,
     alignItems: "center",
     justifyContent: "center",
     ...shadows.soft,
   },
   chatShortcutButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -1300,9 +1255,9 @@ function createStyles(colors: any, shadows: any) {
     justifyContent: "center",
   },
   cameraToggleButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -1315,34 +1270,29 @@ function createStyles(colors: any, shadows: any) {
   },
   cameraBadge: {
     backgroundColor: colors.goldMuted,
-    borderWidth: 1,
-    borderColor: colors.gold,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: borderRadius.full,
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
+    gap: 4,
   },
   cameraBadgeText: {
     color: colors.gold,
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 1,
+    fontSize: 9,
+    fontWeight: "600",
   },
   voiceHint: {
     color: colors.textTertiary,
     fontSize: 13,
-    marginTop: 10,
+    marginTop: 12,
   },
-  // Wake word indicator -- subtle always-on mic dot in header
+  // Wake word indicator
   wakeBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: "rgba(155, 163, 184, 0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(155, 163, 184, 0.2)",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.goldMuted,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1351,7 +1301,7 @@ function createStyles(colors: any, shadows: any) {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "rgba(155, 163, 184, 0.5)",
+    backgroundColor: colors.gold,
     top: 3,
     right: 3,
   },

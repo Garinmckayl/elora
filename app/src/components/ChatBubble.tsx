@@ -18,7 +18,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { borderRadius, useTheme } from "../theme";
+import { borderRadius, useTheme, type ThemeColors } from "../theme";
 import { PhotoGrid } from "./PhotoGrid";
 import AudioPlayer from "./AudioPlayer";
 
@@ -83,6 +83,8 @@ function parseInline(text: string): Segment[] {
 }
 
 function MarkdownText({ text, style, bulletColor }: { text: string; style?: any; bulletColor?: string }) {
+  const { colors, isDark } = useTheme();
+  const mdStyles = useMemo(() => createMdStyles(colors, isDark), [colors, isDark]);
   // Split into lines first for headings / bullets / code blocks
   const lines = text.split("\n");
   const elements: React.ReactNode[] = [];
@@ -169,6 +171,8 @@ function MarkdownText({ text, style, bulletColor }: { text: string; style?: any;
 }
 
 function InlineSegments({ text, style }: { text: string; style?: any }) {
+  const { colors, isDark } = useTheme();
+  const mdStyles = useMemo(() => createMdStyles(colors, isDark), [colors, isDark]);
   const segs = parseInline(text);
   return (
     <Text style={style}>
@@ -236,7 +240,8 @@ function ToolCard({
   isThinking?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const tStyles = useMemo(() => createToolStyles(colors, isDark), [colors, isDark]);
   const meta = TOOL_LABELS[toolName] ?? { icon: "construct-outline", label: toolName, color: colors.gold };
 
   const toggle = () => {
@@ -250,16 +255,16 @@ function ToolCard({
     <TouchableOpacity
       onPress={hasDetail ? toggle : undefined}
       activeOpacity={hasDetail ? 0.7 : 1}
-      style={toolStyles.card}
+      style={tStyles.card}
     >
-      <View style={toolStyles.header}>
-        <View style={[toolStyles.iconDot, { backgroundColor: meta.color + "22" }]}>
+      <View style={tStyles.header}>
+        <View style={[tStyles.iconDot, { backgroundColor: meta.color + "22" }]}>
           <Ionicons name={meta.icon as any} size={13} color={meta.color} />
         </View>
-        <Text style={[toolStyles.label, { color: meta.color }]}>{meta.label}</Text>
+        <Text style={[tStyles.label, { color: meta.color }]}>{meta.label}</Text>
         {subAgentName && (
-          <View style={toolStyles.agentBadge}>
-            <Text style={toolStyles.agentBadgeText}>{subAgentName}</Text>
+          <View style={tStyles.agentBadge}>
+            <Text style={tStyles.agentBadgeText}>{subAgentName}</Text>
           </View>
         )}
         {isThinking && <ActivityDots color={meta.color} />}
@@ -274,11 +279,11 @@ function ToolCard({
       </View>
 
       {expanded && hasDetail && (
-        <View style={toolStyles.detail}>
+        <View style={tStyles.detail}>
           {Object.entries(toolArgs!).map(([k, v]) => (
-            <View key={k} style={toolStyles.detailRow}>
-              <Text style={toolStyles.detailKey}>{k}: </Text>
-              <Text style={toolStyles.detailVal} numberOfLines={3}>
+            <View key={k} style={tStyles.detailRow}>
+              <Text style={tStyles.detailKey}>{k}: </Text>
+              <Text style={tStyles.detailVal} numberOfLines={3}>
                 {typeof v === "object" ? JSON.stringify(v) : String(v)}
               </Text>
             </View>
@@ -439,85 +444,89 @@ export default function ChatBubble({
 }
 
 // ---------------------------------------------------------------------------
-// Styles
+// Styles -- all theme-aware
 // ---------------------------------------------------------------------------
 
-const mdStyles = StyleSheet.create({
-  heading: { fontSize: 16, fontWeight: "700", marginBottom: 4 },
-  bold: { fontWeight: "700" },
-  italic: { fontStyle: "italic" },
-  inlineCode: {
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-    fontSize: 13,
-    backgroundColor: "rgba(0,0,0,0.06)",
-    paddingHorizontal: 4,
-    borderRadius: 3,
-  },
-  codeBlock: {
-    backgroundColor: "rgba(0,0,0,0.06)",
-    borderRadius: 6,
-    padding: 10,
-    marginVertical: 6,
-  },
-  codeBlockText: {
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-    fontSize: 12,
-    color: "#4A5568",
-    lineHeight: 18,
-  },
-  bulletRow: { flexDirection: "row", gap: 6, marginVertical: 1 },
-  bulletDot: { fontWeight: "700", minWidth: 16 },
-});
+function createMdStyles(colors: ThemeColors, isDark: boolean) {
+  return StyleSheet.create({
+    heading: { fontSize: 16, fontWeight: "700", marginBottom: 4 },
+    bold: { fontWeight: "700" },
+    italic: { fontStyle: "italic" },
+    inlineCode: {
+      fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+      fontSize: 13,
+      backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+      paddingHorizontal: 4,
+      borderRadius: 3,
+    },
+    codeBlock: {
+      backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+      borderRadius: 6,
+      padding: 10,
+      marginVertical: 6,
+    },
+    codeBlockText: {
+      fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+      fontSize: 12,
+      color: colors.textSecondary,
+      lineHeight: 18,
+    },
+    bulletRow: { flexDirection: "row", gap: 6, marginVertical: 1 },
+    bulletDot: { fontWeight: "700", minWidth: 16 },
+  });
+}
 
-const toolStyles = StyleSheet.create({
-  card: {
-    backgroundColor: "rgba(0,0,0,0.03)",
-    borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.06)",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    maxWidth: "90%",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-  },
-  iconDot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: "600",
-    letterSpacing: 0.2,
-  },
-  agentBadge: {
-    backgroundColor: "rgba(0,0,0,0.04)",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  agentBadgeText: {
-    fontSize: 10,
-    color: "#9CA3AF",
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
-  },
-  detail: {
-    marginTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.04)",
-    paddingTop: 6,
-    gap: 3,
-  },
-  detailRow: { flexDirection: "row", flexWrap: "wrap" },
-  detailKey: { fontSize: 11, color: "#9CA3AF", fontWeight: "600" },
-  detailVal: { fontSize: 11, color: "#6B7280", flex: 1 },
-});
+function createToolStyles(colors: ThemeColors, isDark: boolean) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+      borderWidth: 1,
+      borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      maxWidth: "90%",
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 7,
+    },
+    iconDot: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    label: {
+      fontSize: 12,
+      fontWeight: "600",
+      letterSpacing: 0.2,
+    },
+    agentBadge: {
+      backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+    },
+    agentBadgeText: {
+      fontSize: 10,
+      color: colors.textTertiary,
+      fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    },
+    detail: {
+      marginTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+      paddingTop: 6,
+      gap: 3,
+    },
+    detailRow: { flexDirection: "row", flexWrap: "wrap" },
+    detailKey: { fontSize: 11, color: colors.textTertiary, fontWeight: "600" },
+    detailVal: { fontSize: 11, color: colors.textSecondary, flex: 1 },
+  });
+}
 
 function createBubbleStyles(colors: any) {
   return StyleSheet.create({

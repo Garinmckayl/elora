@@ -5,12 +5,12 @@
  * which fail on Android for large payloads.
  */
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from "react-native";
 import { Audio } from "expo-av";
 import { File, Paths } from "expo-file-system/next";
 import { Ionicons } from "@expo/vector-icons";
-import { borderRadius, useTheme } from "../theme";
+import { borderRadius, useTheme, type ThemeColors } from "../theme";
 
 interface AudioPlayerProps {
   audioBase64: string;
@@ -21,7 +21,8 @@ interface AudioPlayerProps {
 let _fileCounter = 0;
 
 export default function AudioPlayer({ audioBase64, mimeType = "audio/wav", caption }: AudioPlayerProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const dynamicStyles = useMemo(() => createDynamicStyles(colors, isDark), [colors, isDark]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [position, setPosition] = useState(0);
@@ -125,7 +126,7 @@ export default function AudioPlayer({ audioBase64, mimeType = "audio/wav", capti
   return (
     <View style={staticStyles.container}>
       {caption && <Text style={[staticStyles.caption, { color: colors.textPrimary }]} numberOfLines={2}>{caption}</Text>}
-      <View style={staticStyles.playerRow}>
+      <View style={[staticStyles.playerRow, dynamicStyles.playerRow]}>
         <TouchableOpacity
           onPress={loadAndPlay}
           style={[staticStyles.playButton, { backgroundColor: colors.gold }]}
@@ -138,7 +139,7 @@ export default function AudioPlayer({ audioBase64, mimeType = "audio/wav", capti
           />
         </TouchableOpacity>
         <View style={staticStyles.progressContainer}>
-          <View style={staticStyles.progressTrack}>
+          <View style={[staticStyles.progressTrack, dynamicStyles.progressTrack]}>
             <Animated.View
               style={[
                 staticStyles.progressFill,
@@ -163,6 +164,18 @@ export default function AudioPlayer({ audioBase64, mimeType = "audio/wav", capti
   );
 }
 
+function createDynamicStyles(colors: ThemeColors, isDark: boolean) {
+  return StyleSheet.create({
+    playerRow: {
+      backgroundColor: `${colors.gold}18`,
+      borderColor: `${colors.gold}33`,
+    },
+    progressTrack: {
+      backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)",
+    },
+  });
+}
+
 const staticStyles = StyleSheet.create({
   container: {
     marginTop: 6,
@@ -176,10 +189,8 @@ const staticStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: "rgba(212, 168, 83, 0.1)",
     borderRadius: borderRadius.md,
     borderWidth: 1,
-    borderColor: "rgba(212, 168, 83, 0.2)",
     padding: 10,
   },
   playButton: {
@@ -196,7 +207,6 @@ const staticStyles = StyleSheet.create({
   progressTrack: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: "rgba(0,0,0,0.08)",
     overflow: "hidden",
   },
   progressFill: {
