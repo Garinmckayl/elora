@@ -13,9 +13,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // ---------------------------------------------------------------------------
 
 const lightColors = {
-  // Core palette -- Warm gradient background
+  // Core palette -- Subtle warm gradient background
   background: "#FFFFFF",
-  backgroundGradient: ["#FFFFFF", "#FFFBF5", "#FFF8F0"], // White → Pale peach
+  backgroundGradient: ["#FAF9F8", "#F8F6F4", "#F5F3F1"],
   surface: "#FFFBF7",
   surfaceLight: "#FFF5ED",
   surfaceElevated: "#FFFFFF",
@@ -39,12 +39,12 @@ const lightColors = {
   error: "#E57373",
   warning: "#FFB74D",
 
-  // Gradients -- Soft & warm
-  gradientHero: ["#FFFFFF", "#FFFBF5", "#FFF8F0"],
+  // Gradients -- Subtle warm
+  gradientHero: ["#FAF9F8", "#F8F6F4", "#F5F3F1"],
   gradientGold: ["#FFB87D", "#F4A460"],
   gradientGoldSoft: ["rgba(244, 164, 96, 0.08)", "rgba(244, 164, 96, 0.02)"],
   gradientAccent: ["#7FB8A0", "#5FA380"],
-  gradientWarm: ["#FFF5ED", "#FFEBE0"],
+  gradientWarm: ["rgba(255, 184, 125, 0.06)", "rgba(244, 164, 96, 0.04)"],
 
   // Status -- Muted indicators
   connected: "#88C9A1",
@@ -57,9 +57,9 @@ const lightColors = {
 };
 
 const darkColors = {
-  // Core palette -- Warm dark mode
+  // Core palette -- Subtle dark mode
   background: "#1A1816",
-  backgroundGradient: ["#1A1816", "#24201C", "#2A221E"],
+  backgroundGradient: ["#1A1816", "#1C1A18", "#1E1C1A"],
   surface: "#24201C",
   surfaceLight: "#2A221E",
   surfaceElevated: "#2D2622",
@@ -84,11 +84,11 @@ const darkColors = {
   warning: "#FFC96D",
 
   // Gradients
-  gradientHero: ["#1A1816", "#24201C", "#2A221E"],
+  gradientHero: ["#1A1816", "#1C1A18", "#1E1C1A"],
   gradientGold: ["#FFC48A", "#E8A96D"],
   gradientGoldSoft: ["rgba(232, 169, 109, 0.12)", "rgba(232, 169, 109, 0.03)"],
   gradientAccent: ["#6FA390", "#5A8F7A"],
-  gradientWarm: ["#2A221E", "#332822"],
+  gradientWarm: ["rgba(232, 169, 109, 0.06)", "rgba(200, 150, 100, 0.04)"],
 
   // Status
   connected: "#7BC495",

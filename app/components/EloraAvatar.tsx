@@ -19,7 +19,7 @@ interface Props {
 
 export default function EloraAvatar({ state = 'happy', size = 'medium', animated = true }: Props) {
   const { colors } = useTheme();
-  const sizeMap = { small: 40, medium: 60, large: 100 };
+  const sizeMap = { small: 40, medium: 60, large: 140 };
   const avatarSize = sizeMap[size];
   const gifSource = AVATAR_GIFS[state] || AVATAR_GIFS.happy;
 
@@ -34,14 +34,15 @@ export default function EloraAvatar({ state = 'happy', size = 'medium', animated
           borderColor: colors.gold,
           shadowColor: colors.gold,
           backgroundColor: colors.surface,
+          borderWidth: 2.5,
         }
       ]}>
         <Image
           source={gifSource}
           style={{
-            width: avatarSize - 4,
-            height: avatarSize - 4,
-            borderRadius: (avatarSize - 4) / 2,
+            width: avatarSize - 8,
+            height: avatarSize - 8,
+            borderRadius: (avatarSize - 8) / 2,
           }}
           resizeMode="cover"
         />
@@ -75,5 +76,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+  },
+  avatarContainerNoBg: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'visible',
   },
 });

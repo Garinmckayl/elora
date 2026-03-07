@@ -82,6 +82,8 @@ export default function HomeScreen({
   const avatarFloat = useRef(new Animated.Value(0)).current;
   const glowPulse = useRef(new Animated.Value(0.3)).current;
   const gradientShift = useRef(new Animated.Value(0)).current;
+  const buttonPulse = useRef(new Animated.Value(1)).current;
+  const buttonGlow = useRef(new Animated.Value(0.15)).current;
 
   // Update time every minute
   useEffect(() => {
@@ -113,75 +115,107 @@ export default function HomeScreen({
     fetchContext();
   }, [userId, idToken]);
 
-  // Entry animation
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeIn, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideUp, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.spring(avatarScale, {
-        toValue: 1,
-        friction: 6,
-        tension: 40,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    // Continuous floating animation for avatar
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(avatarFloat, {
-          toValue: -8,
-          duration: 2500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(avatarFloat, {
-          toValue: 8,
-          duration: 2500,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Subtle glow pulse
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowPulse, {
-          toValue: 0.6,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(glowPulse, {
-          toValue: 0.3,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Animated gradient overlay -- subtle breathing warmth
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(gradientShift, {
+    // Entry animation
+    useEffect(() => {
+      Animated.parallel([
+        Animated.timing(fadeIn, {
           toValue: 1,
-          duration: 4000,
+          duration: 800,
           useNativeDriver: true,
         }),
-        Animated.timing(gradientShift, {
+        Animated.timing(slideUp, {
           toValue: 0,
-          duration: 4000,
+          duration: 800,
           useNativeDriver: true,
         }),
-      ])
-    ).start();
-  }, []);
+        Animated.spring(avatarScale, {
+          toValue: 1,
+          friction: 6,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Continuous floating animation for avatar -- slower, smoother
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(avatarFloat, {
+            toValue: -6,
+            duration: 3000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(avatarFloat, {
+            toValue: 6,
+            duration: 3000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Subtle glow pulse -- softer
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(glowPulse, {
+            toValue: 0.4,
+            duration: 3000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(glowPulse, {
+            toValue: 0.2,
+            duration: 3000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Gradient shift animation -- slow subtle breathe
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(gradientShift, {
+            toValue: 1,
+            duration: 8000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(gradientShift, {
+            toValue: 0,
+            duration: 8000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Live Call button pulse animation -- subtle
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(buttonPulse, {
+            toValue: 1.06,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(buttonPulse, {
+            toValue: 1,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Live Call button glow pulse -- subtle
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(buttonGlow, {
+            toValue: 0.35,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(buttonGlow, {
+            toValue: 0.15,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }, []);
 
   // Handle tap anywhere on canvas -> open chat
   const handleCanvasTap = useCallback(() => {
@@ -250,27 +284,29 @@ export default function HomeScreen({
     <View style={styles.container}>
       <StatusBar barStyle={mode === "dark" ? "light-content" : "dark-content"} />
 
-      {/* Background Gradient -- edge to edge */}
+      {/* Background Gradient -- subtle, warm, breathing */}
       <LinearGradient
         colors={colors.backgroundGradient as [string, string, string]}
         style={StyleSheet.absoluteFillObject}
-        start={{ x: 0.2, y: 0 }}
-        end={{ x: 0.8, y: 1 }}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
       />
-
-      {/* Animated warm overlay -- breathing effect */}
+      
+      {/* Subtle warm overlay -- slow opacity breathe */}
       <Animated.View
         style={[
           StyleSheet.absoluteFillObject,
-          { opacity: gradientShift },
+          {
+            opacity: gradientShift.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.5] }),
+          },
         ]}
         pointerEvents="none"
       >
         <LinearGradient
           colors={colors.gradientWarm as [string, string]}
           style={StyleSheet.absoluteFillObject}
-          start={{ x: 0, y: 0.3 }}
-          end={{ x: 1, y: 0.7 }}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
         />
       </Animated.View>
 
@@ -383,21 +419,32 @@ export default function HomeScreen({
             <Ionicons name="camera-outline" size={22} color={colors.textSecondary} />
           </TouchableOpacity>
 
-          {/* Voice call button -- primary CTA */}
+          {/* Voice call button -- primary CTA with animated gradient */}
           <TouchableOpacity
             style={[styles.voiceCallBtn, shadows.glow]}
             onPress={handleVoiceCall}
             activeOpacity={0.8}
           >
-            <LinearGradient
-              colors={colors.gradientGold as [string, string]}
-              style={styles.voiceCallGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+            <Animated.View
+              style={[
+                styles.voiceCallGradient,
+                {
+                  transform: [{ scale: buttonPulse }],
+                  shadowOpacity: buttonGlow,
+                },
+              ]}
             >
-              <Ionicons name="call" size={26} color="#FFF" />
-              <Text style={styles.voiceCallText}>Live Call</Text>
-            </LinearGradient>
+              <LinearGradient
+                colors={colors.gradientGold as [string, string]}
+                style={StyleSheet.absoluteFillObject}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              />
+              <View style={styles.voiceCallContent}>
+                <Ionicons name="call" size={26} color="#FFF" />
+                <Text style={styles.voiceCallText}>Live Call</Text>
+              </View>
+            </Animated.View>
           </TouchableOpacity>
 
           {/* Chat button */}
@@ -528,9 +575,57 @@ const styles = StyleSheet.create({
   },
   voiceCallBtn: {
     borderRadius: 28,
+    overflow: "visible",
+  },
+  voiceCallGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    gap: 10,
+    borderRadius: 28,
+  },
+  voiceCallContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  voiceCallText: {
+    color: "#FFF",
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  voiceCallBtnWrapper: {
+    borderRadius: 28,
+  },
+  voiceCallBtn: {
+    borderRadius: 28,
     overflow: "hidden",
   },
   voiceCallGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    gap: 10,
+  },
+  voiceCallText: {
+    color: "#FFF",
+    fontSize: 17,
+    fontWeight: "700",
+  },
+  voiceCallBtn: {
+    borderRadius: 28,
+    overflow: "hidden",
+  },
+  voiceCallGradient: {
+    borderRadius: 28,
+    overflow: "hidden",
+  },
+  voiceCallContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
