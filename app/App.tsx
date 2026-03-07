@@ -198,19 +198,18 @@ function AppInner() {
     );
   }
 
-  if (showSettings) {
-    return (
-      <SafeAreaProvider>
-        <SettingsScreen
-          onClose={() => setShowSettings(false)}
-          userId={userId}
-          user={authUser}
-          onSignIn={signIn}
-          onSignOut={signOut}
-        />
-      </SafeAreaProvider>
-    );
-  }
+  // Settings rendered as a Modal overlay -- never unmounts MainScreen/HomeScreen
+  const settingsModal = (
+    <Modal visible={showSettings} animationType="slide" presentationStyle="pageSheet">
+      <SettingsScreen
+        onClose={() => setShowSettings(false)}
+        userId={userId}
+        user={authUser}
+        onSignIn={signIn}
+        onSignOut={signOut}
+      />
+    </Modal>
+  );
 
   // Show minimalist home screen when not in active conversation
   if (showHome) {
@@ -234,6 +233,7 @@ function AppInner() {
           }}
           onOpenSettings={() => setShowSettings(true)}
         />
+        {settingsModal}
       </SafeAreaProvider>
     );
   }
@@ -251,6 +251,7 @@ function AppInner() {
         initialIntent={initialIntent}
         onIntentConsumed={() => setInitialIntent(null)}
       />
+      {settingsModal}
     </SafeAreaProvider>
   );
 }
@@ -263,7 +264,7 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
   const idToken = appIdToken ?? null;
 
   // Compute styles dynamically based on current theme colors
-  const styles = useMemo(() => createStyles(colors, shadows), [colors, shadows]);
+  const styles = useMemo(() => createStyles(colors, shadows, isDark), [colors, shadows, isDark]);
 
   // Toast notifications for errors and connection state
   const { toasts, showToast, dismissToast } = useToast();
@@ -475,6 +476,7 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
   const flatListRef = useRef<FlatList>(null);
+  const textInputRef = useRef<TextInput>(null);
 
   // Animated values for the speaking indicator
   const speakingAnim = useRef(new Animated.Value(0)).current;
@@ -493,8 +495,8 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
     onIntentConsumed?.();
 
     if (intent === "voice") {
-      // Auto-start a live call
-      setTimeout(async () => {
+      // Auto-start a live call with a small delay so MainScreen finishes mounting
+      const timer = setTimeout(async () => {
         if (!hasPermission) {
           Alert.alert("Microphone Permission", "Elora needs microphone access.");
           return;
@@ -512,11 +514,14 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
           content: "[Call started - streaming audio]",
           timestamp: new Date(),
         });
-      }, 300); // Small delay so MainScreen finishes mounting
+      }, 300);
+      return () => clearTimeout(timer);
     } else if (intent === "camera") {
       setShowCamera(true);
     } else if (intent === "chat") {
       setShowChat(true);
+      // Auto-focus the text input after a brief layout settle
+      setTimeout(() => textInputRef.current?.focus(), 100);
     }
   }, [initialIntent]);
 
@@ -807,6 +812,14 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
     <SafeAreaView style={styles.container}>
       <StatusBar style={isDark ? "light" : "dark"} />
 
+      {/* Warm gradient background -- matches HomeScreen feel */}
+      <LinearGradient
+        colors={colors.gradientHero as [string, string, string]}
+        style={StyleSheet.absoluteFillObject}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+      />
+
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -960,6 +973,7 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
             <View style={styles.textInputContainer}>
               <View style={styles.textInputWrapper}>
                 <TextInput
+                  ref={textInputRef}
                   style={styles.textInput}
                   value={inputText}
                   onChangeText={setInputText}
@@ -1069,11 +1083,11 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
   );
 }
 
-function createStyles(colors: any, shadows: any) {
+function createStyles(colors: any, shadows: any, isDark = false) {
   return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "transparent", // gradient fills behind
   },
 
   // -- Header --
@@ -1130,7 +1144,7 @@ function createStyles(colors: any, shadows: any) {
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.surface,
+    backgroundColor: isDark ? colors.surface : "rgba(255,255,255,0.7)",
   },
   liveBadge: {
     backgroundColor: colors.goldMuted,
@@ -1172,6 +1186,7 @@ function createStyles(colors: any, shadows: any) {
   },
   messageListContent: {
     paddingVertical: 16,
+    paddingHorizontal: 4,
     flexGrow: 1,
     justifyContent: "flex-end",
   },
@@ -1219,27 +1234,28 @@ function createStyles(colors: any, shadows: any) {
 
   // -- Input Area --
   inputArea: {
+    backgroundColor: colors.surfaceElevated,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.background,
+    borderTopColor: colors.borderLight,
     paddingBottom: Platform.OS === "ios" ? 8 : 6,
   },
 
   // Text input
   textInputContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   textInputWrapper: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.xl,
     borderWidth: 1,
     borderColor: colors.border,
     paddingLeft: 18,
-    paddingRight: 8,
-    paddingVertical: 8,
+    paddingRight: 6,
+    paddingVertical: 6,
+    ...shadows.soft,
   },
   textInput: {
     flex: 1,
@@ -1267,6 +1283,7 @@ function createStyles(colors: any, shadows: any) {
   voiceContainer: {
     alignItems: "center",
     paddingVertical: 16,
+    backgroundColor: colors.surfaceElevated,
   },
   voiceControls: {
     flexDirection: "row",
@@ -1281,6 +1298,7 @@ function createStyles(colors: any, shadows: any) {
     backgroundColor: colors.goldMuted,
     alignItems: "center",
     justifyContent: "center",
+    ...shadows.soft,
   },
   hangUpButton: {
     width: 56,
@@ -1295,11 +1313,12 @@ function createStyles(colors: any, shadows: any) {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.surface,
+    backgroundColor: isDark ? colors.surface : "rgba(255,255,255,0.85)",
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     alignItems: "center",
     justifyContent: "center",
+    ...shadows.soft,
   },
   cameraToggleButton: {
     width: 48,
