@@ -1,7 +1,7 @@
-# Elora — Your Personal AGI, In Your Pocket
+# Elora — Your Personal AI Computer, In Your Pocket
 
 <p align="center">
-  <strong>Every AI talks. Elora acts. She remembers your life, speaks to you naturally, and gets things done while you sleep.</strong>
+  <strong>Not a chatbot. A secure, Gemini-powered personal AI that learns skills, runs code in your private sandbox, and acts on the real world.</strong>
 </p>
 
 <p align="center">
@@ -12,26 +12,27 @@
 
 ## The Problem
 
-201K people starred OpenClaw in one month because they want a personal AI that actually *does things* — sends emails, manages files, browses the web, runs code.
+306K people starred OpenClaw because they want a personal AI that actually *does things* — sends emails, manages files, browses the web, runs code, learns new skills.
 
 But every solution requires a Mac Mini, Docker, terminal commands, API keys, SSH tunnels, or a cloud bill.
 
-**8 billion people want a personal AI agent. 99% of them will never run a Docker container.**
+**8 billion people want a personal AI computer. 99% of them will never run a Docker container.**
 
 ## The Solution
 
-Elora is not a chatbot. She is a **fully managed personal AI agent that lives on your phone, thinks on the cloud, and acts on the real world** — with zero setup.
+Elora is not a chatbot. She is a **personal AI computer that lives on your phone** — with her own sandbox, her own skill system, and a trust protocol that protects everything she does.
 
+- **Personal Sandbox** — Each user gets their own isolated cloud VM (via [E2B](https://e2b.dev)). Install packages. Run code. Create files. Everything persists across sessions. It's your computer in the cloud.
+- **Skill System** — Elora can search for, install, create, and execute skills on the fly. Tell her what you need — she'll find it, build it, or learn it. Skills persist in your library forever.
+- **Agntor Trust Protocol** — Every interaction is protected by [Agntor](https://github.com/agntor/agntor): prompt injection guard, PII redaction, tool guardrails, SSRF protection. Your personal AI, secured.
 - **Wake word** — "Hey Elora" triggers a call from any screen. Always listening, zero friction.
 - **Natural voice** — Gemini Live API. Interrupt her mid-sentence. She interrupts you back.
 - **Vision** — Point your camera at anything. She sees it, recognises faces, and responds in real time.
-- **Real actions** — Sends emails, texts friends, books calendar events, browses the web with live screenshots, executes code, creates Google Docs and Slides, manages files.
-- **Restaurant reservations** — **Powered by Square**: Search restaurants, book tables, manage reservations. Real bookings, real confirmations.
+- **40+ Tools** — Sends emails, texts friends, books calendar events, browses the web, executes code, creates Google Docs and Slides, manages files, books restaurants via Square.
 - **People memory** — Knows the people in your life. Remembers faces, birthdays, relationships, contact info.
-- **Persistent memory** — **Powered by MemU**: 3-layer architecture with hierarchical categorization, continuous learning pipeline, and proactive intent capture. She remembers what you told her three weeks ago — and anticipates what you need next.
-- **Multimodal recaps** — **Powered by Lyria 3 + Imagen 3 + Gemini TTS**: "Recap my week" generates custom theme songs, photo montages, and voice narration.
-- **Truly proactive** — Background engine reaches out via push notifications when meetings approach, birthdays are near, or you haven't talked to someone close in a while. Morning briefings, smart reminders, Gmail push alerts — all while the app is closed.
-- **Fully managed** — No servers. No API keys. Download and talk.
+- **Persistent memory** — **Powered by [MemU](https://github.com/NevaMind-AI/memU)**: 92% Locomo accuracy, 10x lower always-on cost. She remembers what you told her three weeks ago.
+- **Truly proactive** — Background engine reaches out via push notifications when meetings approach, birthdays are near, or you haven't talked to someone close in a while.
+- **Fully managed** — No servers. No API keys. No Docker. Download and talk.
 
 ### 🧠 Powered by MemU — Proactive Memory Engine
 
@@ -90,11 +91,20 @@ Elora integrates [MemU](https://github.com/NevaMind-AI/memU) for production-grad
 │  │  └────────────────────────────────────────────┘   │  │
 │  │                                                    │  │
 │  │  ┌──────────────────────────────────────────────┐  │  │
-│  │  │                  TOOLS (30+)                 │  │  │
+│  │  │                  TOOLS (40+)                 │  │  │
 │  │  │  Gmail · Calendar · Browser · Memory        │  │  │
 │  │  │  People · SMS · Face Recognition · Camera   │  │  │
 │  │  │  Files · Reminders · Workspace · Push       │  │  │
-│  │  │  Briefing · Code (E2B) · Proactive Engine   │  │  │
+│  │  │  Briefing · Proactive Engine                │  │  │
+│  │  │  ────────────────────────────────            │  │  │
+│  │  │  Skill System: search, install, create,     │  │  │
+│  │  │    execute, publish (community registry)    │  │  │
+│  │  └──────────────────────────────────────────────┘  │  │
+│  │                                                    │  │
+│  │  ┌──────────────────────────────────────────────┐  │  │
+│  │  │         SECURITY (Agntor Protocol)           │  │  │
+│  │  │  Prompt Guard · PII Redact · Tool Guard     │  │  │
+│  │  │  SSRF Protection · Agent Identity           │  │  │
 │  │  └──────────────────────────────────────────────┘  │  │
 │  └────────────────────────────────────────────────────┘  │
 │                                                          │
@@ -107,12 +117,13 @@ Elora integrates [MemU](https://github.com/NevaMind-AI/memU) for production-grad
 │  └──────────────┘  └───────────────┘  └──────────────┘  │
 └──────────────────────────────────────────────────────────┘
                            │
-              ┌────────────┴─────────────┐
-              │    External Services     │
-              │  E2B (Code Sandbox)      │
-              │  Twilio (SMS)            │
-              │  Expo Push               │
-              └──────────────────────────┘
+               ┌────────────┴─────────────┐
+               │    External Services     │
+               │  E2B (Per-User Sandbox)  │
+               │  Agntor (Trust Protocol) │
+               │  Twilio (SMS)            │
+               │  Expo Push               │
+               └──────────────────────────┘
 ```
 
 ---
@@ -128,7 +139,9 @@ Elora integrates [MemU](https://github.com/NevaMind-AI/memU) for production-grad
 | **LLM** | Gemini 2.0 Flash / 2.5 Flash | Fast, multimodal, native tool use |
 | **Browser** | Gemini 2.5 Flash + Playwright | Autonomous browser with live screenshot stream |
 | **Face Recognition** | Gemini Vision (two-pass comparison) | Identify known people from camera with GCS reference images |
-| **Code** | E2B Code Interpreter | Secure Python / JS sandbox, no container management |
+| **Code** | E2B Code Interpreter | Per-user persistent sandbox, auto-pause/resume, package persistence |
+| **Skills** | Custom skill system (OpenClaw-inspired) | Search, install, create, execute skills; community registry |
+| **Security** | [Agntor](https://github.com/agntor/agntor) trust protocol | Prompt injection guard, PII redaction, tool guardrails, SSRF protection |
 | **Backend** | FastAPI + Python 3.11 on Cloud Run | ADK-native, auto-scaling, 0-to-N |
 | **Memory** | **MemU** + Firestore + `text-embedding-004` | **MemU**: 92% Locomo accuracy, 10x lower always-on cost, hierarchical file-system metaphor. **Firestore**: Fallback + vector search |
 | **SMS** | Twilio (primary) / deep-link fallback | Text messaging with last-contacted tracking |
@@ -257,6 +270,8 @@ https://elora-backend-453139277365.us-central1.run.app
 | Endpoint | What |
 |----------|------|
 | `GET /health` | Health check |
+| `GET /agent/identity` | Agntor agent identity + security capabilities |
+| `GET /agent/skills` | List bundled skills |
 | `WS /ws/{user_id}` | Text agent (ADK) |
 | `WS /ws/live/{user_id}` | Live audio (Gemini Live API) |
 | `WS /ws/wake/{user_id}` | Always-on wake word detector |
@@ -333,16 +348,17 @@ https://elora-backend-453139277365.us-central1.run.app
 
 | What Others Build | What Elora Does |
 |---|---|
+| Fixed set of tools | **Extensible skill system** — learns new skills on the fly, creates them from scratch |
+| Shared compute, no isolation | **Personal sandbox** — each user gets their own isolated cloud VM that persists |
+| No security model | **Agntor trust protocol** — prompt guard, PII redaction, tool guardrails, SSRF protection |
 | Text chatbot with voice bolted on | Voice-first agent; wake word from lock screen |
 | Web-only demo | Mobile app you hold in your hand |
 | Single-turn Q&A | Multi-step autonomous workflows |
-| No real actions | Sends actual emails, texts friends, books real calendar events |
-| No memory | 3-layer memory -- remembers your name, your people, your preferences across sessions |
+| No real actions | Sends actual emails, texts friends, books calendar events, runs code |
+| No memory | 3-layer memory — remembers your name, your people, your preferences across sessions |
 | Doesn't know your people | Remembers faces, birthdays, relationships; recognises your girlfriend on camera |
 | Requires setup | Download -> talk. Zero setup. |
-| Browser = URL fetch | Full Playwright browser with live screenshot stream |
-| No code execution | E2B sandbox -- runs Python/JS on request |
-| Manual reminders | Background proactive engine: meeting alerts, birthday nudges, contact check-ins -- all unprompted |
+| No code execution | Per-user E2B sandbox — runs Python/JS, installs packages, persists files |
 
 ---
 
@@ -386,7 +402,9 @@ elora/
 │   │   ├── push.py               # Expo push notifications
 │   │   ├── notification_history.py  # Rate limiting & dedup
 │   │   ├── sms.py                # Twilio SMS + fallback
-│   │   ├── e2b_sandbox.py        # Secure code execution
+│   │   ├── e2b_sandbox.py        # Per-user persistent sandbox (E2B auto-pause)
+│   │   ├── mcp_skills.py         # Skill system: search, install, create, execute
+│   │   ├── agntor_security.py    # Agntor trust protocol: guard, redact, SSRF
 │   │   ├── workspace.py          # Google Slides & Docs creation
 │   │   └── files.py              # GCS per-user file storage
 │   ├── requirements.txt
