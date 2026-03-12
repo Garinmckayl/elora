@@ -381,7 +381,7 @@ function createStyles(colors: any, shadows: any) {
     borderRadius: 36,
     alignItems: "center",
     justifyContent: "center",
-    ...shadows.gold,
+    ...shadows.glow,
   },
   profileName: {
     fontSize: 22,

@@ -575,50 +575,6 @@ const styles = StyleSheet.create({
   },
   voiceCallBtn: {
     borderRadius: 28,
-    overflow: "visible",
-  },
-  voiceCallGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    gap: 10,
-    borderRadius: 28,
-  },
-  voiceCallContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-  },
-  voiceCallText: {
-    color: "#FFF",
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  voiceCallBtnWrapper: {
-    borderRadius: 28,
-  },
-  voiceCallBtn: {
-    borderRadius: 28,
-    overflow: "hidden",
-  },
-  voiceCallGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    gap: 10,
-  },
-  voiceCallText: {
-    color: "#FFF",
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  voiceCallBtn: {
-    borderRadius: 28,
     overflow: "hidden",
   },
   voiceCallGradient: {

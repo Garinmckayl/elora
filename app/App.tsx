@@ -20,7 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useElora, Message } from "./src/hooks/useElora";
-import { useVoice, getRecordingMimeType } from "./src/hooks/useVoice";
+import { useVoice } from "./src/hooks/useVoice";
 import { useLiveKit } from "./src/hooks/useLiveKit";
 import { useFirebaseAuth } from "./src/hooks/useFirebaseAuth";
 import { useWakeWord } from "./src/hooks/useWakeWord";
@@ -144,8 +144,8 @@ function AppInner() {
   }, []);
 
   // Lift Firebase auth to App level so SettingsScreen gets the real userId
-  const { uid, idToken, loading: authLoading, user: authUser, signIn, signOut } = useFirebaseAuth();
-  const userId = uid ?? "anonymous";
+  const { uid: firebaseUid, idToken, loading: authLoading, user: authUser, signIn, signOut } = useFirebaseAuth();
+  const userId = firebaseUid ?? "anonymous";
 
   // Check if onboarding was completed
   useEffect(() => {
