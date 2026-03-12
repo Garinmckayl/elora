@@ -1,153 +1,674 @@
 """
-MCP + skills.md dynamic API connection system.
-Allows Elora to connect to any external API by reading skill definitions
-and executing commands in an E2B sandbox.
+Elora Skill System -- OpenClaw-inspired, consumer-grade.
+
+Skills are modular capabilities that Elora can discover, install, create, and execute.
+Each skill is a definition (name, description, code template) stored per-user in Firestore
+and executed in the user's personal E2B sandbox.
+
+Three skill sources (highest to lowest precedence):
+1. User skills    -- created/installed by the user, stored in Firestore per-user
+2. Community      -- curated registry in Firestore `skill_registry/` collection
+3. Bundled        -- shipped with Elora (hardcoded defaults)
+
+Elora can also CREATE new skills on the fly -- generating the code herself
+and saving it for future use. This is the "personal AGI" differentiator.
 """
 
 import os
-import logging
 import json
+import time
+import logging
+from typing import Optional
 
-logger = logging.getLogger("elora-tools.mcp_skills")
+logger = logging.getLogger("elora.skills")
 
 E2B_API_KEY = os.getenv("E2B_API_KEY", "")
 
 
-# Default skills that Elora knows about
-DEFAULT_SKILLS = """
-# Elora Skills
+def _get_firestore():
+    """Lazy Firestore client."""
+    from google.cloud import firestore
+    return firestore.Client()
 
-## Weather API
-- endpoint: https://api.open-meteo.com/v1/forecast
-- method: GET
-- params: latitude, longitude, current_weather=true
-- example: curl "https://api.open-meteo.com/v1/forecast?latitude=40.71&longitude=-74.01&current_weather=true"
-- no auth required
 
-## GitHub API
-- endpoint: https://api.github.com
-- method: GET/POST
-- auth: Bearer token via GITHUB_TOKEN env var
-- example: curl -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/user
+# ---------------------------------------------------------------------------
+# Bundled skills -- ship with Elora, always available
+# ---------------------------------------------------------------------------
 
-## News API
-- endpoint: https://newsapi.org/v2/top-headlines
-- method: GET
-- params: country, category, q (query)
-- auth: apiKey query parameter
-- example: curl "https://newsapi.org/v2/top-headlines?country=us&apiKey=$NEWS_API_KEY"
+BUNDLED_SKILLS = {
+    "weather": {
+        "name": "weather",
+        "description": "Get current weather and forecasts for any location. Uses Open-Meteo (free, no API key).",
+        "category": "utility",
+        "code_template": """
+import requests, json
 
-## Exchange Rates
-- endpoint: https://api.exchangerate-api.com/v4/latest/USD
-- method: GET
-- no auth required
-- example: curl https://api.exchangerate-api.com/v4/latest/USD
+def get_weather(location: str):
+    # Geocode location
+    geo = requests.get(f"https://geocoding-api.open-meteo.com/v1/search?name={location}&count=1").json()
+    if not geo.get("results"):
+        return {"error": f"Location '{location}' not found"}
+    lat, lon = geo["results"][0]["latitude"], geo["results"][0]["longitude"]
+    name = geo["results"][0].get("name", location)
+    
+    # Get weather
+    resp = requests.get(
+        f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
+        f"&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code"
+        f"&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto"
+    ).json()
+    
+    current = resp.get("current", {})
+    daily = resp.get("daily", {})
+    return {
+        "location": name,
+        "temperature": current.get("temperature_2m"),
+        "humidity": current.get("relative_humidity_2m"),
+        "wind_speed": current.get("wind_speed_10m"),
+        "daily_high": daily.get("temperature_2m_max", [None])[0],
+        "daily_low": daily.get("temperature_2m_min", [None])[0],
+    }
 
-## Joke API
-- endpoint: https://official-joke-api.appspot.com/random_joke
-- method: GET  
-- no auth required
+result = get_weather("{location}")
+print(json.dumps(result))
+""",
+        "parameters": {"location": "City name or place"},
+    },
+    "hackernews": {
+        "name": "hackernews",
+        "description": "Get top stories from Hacker News with titles, scores, and URLs.",
+        "category": "news",
+        "code_template": """
+import requests, json
 
-## REST Countries
-- endpoint: https://restcountries.com/v3.1
-- paths: /name/{name}, /alpha/{code}, /all
-- method: GET
-- no auth required
-"""
+def get_hn_top(count=10):
+    ids = requests.get("https://hacker-news.firebaseio.com/v0/topstories.json").json()[:count]
+    stories = []
+    for sid in ids:
+        s = requests.get(f"https://hacker-news.firebaseio.com/v0/item/{sid}.json").json()
+        stories.append({"title": s.get("title"), "url": s.get("url", ""), "score": s.get("score", 0), "by": s.get("by", "")})
+    return stories
+
+result = get_hn_top({count})
+print(json.dumps(result))
+""",
+        "parameters": {"count": "Number of stories (default 10)"},
+    },
+    "exchange_rates": {
+        "name": "exchange_rates",
+        "description": "Get current currency exchange rates. Converts between any currencies.",
+        "category": "finance",
+        "code_template": """
+import requests, json
+
+def get_rates(base="USD"):
+    resp = requests.get(f"https://api.exchangerate-api.com/v4/latest/{base}").json()
+    return {"base": base, "rates": resp.get("rates", {}), "updated": resp.get("date")}
+
+result = get_rates("{base_currency}")
+print(json.dumps(result))
+""",
+        "parameters": {"base_currency": "Base currency code (e.g. USD, EUR, GBP)"},
+    },
+    "wikipedia": {
+        "name": "wikipedia",
+        "description": "Search Wikipedia and get article summaries.",
+        "category": "knowledge",
+        "code_template": """
+import requests, json
+
+def wiki_summary(query):
+    resp = requests.get("https://en.wikipedia.org/api/rest_v1/page/summary/" + query.replace(" ", "_")).json()
+    if "title" in resp:
+        return {"title": resp["title"], "summary": resp.get("extract", ""), "url": resp.get("content_urls", {}).get("desktop", {}).get("page", "")}
+    # Fallback: search
+    search = requests.get(f"https://en.wikipedia.org/w/api.php?action=opensearch&search={query}&limit=5&format=json").json()
+    return {"results": search[1] if len(search) > 1 else [], "urls": search[3] if len(search) > 3 else []}
+
+result = wiki_summary("{query}")
+print(json.dumps(result))
+""",
+        "parameters": {"query": "Search term or article title"},
+    },
+    "crypto_prices": {
+        "name": "crypto_prices",
+        "description": "Get current cryptocurrency prices from CoinGecko (free, no API key).",
+        "category": "finance",
+        "code_template": """
+import requests, json
+
+def get_crypto(coins="bitcoin,ethereum", currency="usd"):
+    resp = requests.get(
+        f"https://api.coingecko.com/api/v3/simple/price?ids={coins}&vs_currencies={currency}&include_24hr_change=true"
+    ).json()
+    return resp
+
+result = get_crypto("{coins}", "{currency}")
+print(json.dumps(result))
+""",
+        "parameters": {"coins": "Comma-separated coin IDs (e.g. bitcoin,ethereum)", "currency": "Target currency (e.g. usd)"},
+    },
+    "rss_reader": {
+        "name": "rss_reader",
+        "description": "Read and parse any RSS/Atom feed. Great for news, blogs, podcasts.",
+        "category": "utility",
+        "code_template": """
+import feedparser, json
+
+def read_feed(url, count=10):
+    feed = feedparser.parse(url)
+    entries = []
+    for e in feed.entries[:count]:
+        entries.append({
+            "title": e.get("title", ""),
+            "link": e.get("link", ""),
+            "published": e.get("published", ""),
+            "summary": e.get("summary", "")[:300],
+        })
+    return {"feed_title": feed.feed.get("title", ""), "entries": entries}
+
+result = read_feed("{feed_url}", {count})
+print(json.dumps(result))
+""",
+        "parameters": {"feed_url": "URL of the RSS/Atom feed", "count": "Number of entries (default 10)"},
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# Skill registry operations
+# ---------------------------------------------------------------------------
+
+def search_skills(query: str, user_id: str) -> dict:
+    """
+    Search for skills in the community registry and bundled skills.
+    Elora uses this to find capabilities she doesn't have yet.
+
+    Args:
+        query: What the user needs (e.g. "track crypto prices", "read RSS feeds").
+
+    Returns:
+        dict: Matching skills from bundled + community registry.
+    """
+    query_lower = query.lower()
+    results = []
+
+    # Search bundled skills
+    for name, skill in BUNDLED_SKILLS.items():
+        if (query_lower in skill["description"].lower() or
+                query_lower in name.lower() or
+                query_lower in skill.get("category", "").lower()):
+            results.append({
+                "name": name,
+                "description": skill["description"],
+                "category": skill.get("category", "general"),
+                "source": "bundled",
+                "installed": False,
+            })
+
+    # Search community registry in Firestore
+    try:
+        db = _get_firestore()
+        registry = db.collection("skill_registry").stream()
+        for doc in registry:
+            skill = doc.to_dict()
+            skill_name = skill.get("name", doc.id)
+            skill_desc = skill.get("description", "")
+            skill_cat = skill.get("category", "")
+            if (query_lower in skill_desc.lower() or
+                    query_lower in skill_name.lower() or
+                    query_lower in skill_cat.lower()):
+                results.append({
+                    "name": skill_name,
+                    "description": skill_desc,
+                    "category": skill_cat,
+                    "source": "community",
+                    "author": skill.get("author", "community"),
+                    "installed": False,
+                })
+    except Exception as e:
+        logger.warning(f"[Skills] Registry search failed: {e}")
+
+    # Check which are already installed by this user
+    try:
+        db = _get_firestore()
+        user_skills = db.collection("users").document(user_id).collection("skills").stream()
+        installed_names = {doc.id for doc in user_skills}
+        for r in results:
+            if r["name"] in installed_names:
+                r["installed"] = True
+    except Exception:
+        pass
+
+    if not results:
+        return {
+            "status": "success",
+            "skills": [],
+            "report": (
+                f"No skills found matching '{query}'. But I can create a custom skill for this! "
+                "Just tell me what you need and I'll write it."
+            ),
+        }
+
+    return {
+        "status": "success",
+        "skills": results,
+        "report": f"Found {len(results)} skill(s) matching '{query}'.",
+    }
+
+
+def install_skill(skill_name: str, user_id: str) -> dict:
+    """
+    Install a skill for the user. Copies the skill definition to the user's profile
+    and deploys the code to their sandbox.
+
+    Args:
+        skill_name: Name of the skill to install (from search results or bundled).
+
+    Returns:
+        dict: Installation status.
+    """
+    # Find the skill definition
+    skill_def = None
+
+    # Check bundled first
+    if skill_name in BUNDLED_SKILLS:
+        skill_def = BUNDLED_SKILLS[skill_name].copy()
+        skill_def["source"] = "bundled"
+
+    # Check community registry
+    if not skill_def:
+        try:
+            db = _get_firestore()
+            doc = db.collection("skill_registry").document(skill_name).get()
+            if doc.exists:
+                skill_def = doc.to_dict()
+                skill_def["source"] = "community"
+        except Exception as e:
+            logger.warning(f"[Skills] Registry lookup failed: {e}")
+
+    if not skill_def:
+        return {
+            "status": "error",
+            "report": f"Skill '{skill_name}' not found in bundled skills or community registry.",
+        }
+
+    # Save to user's skills collection
+    try:
+        db = _get_firestore()
+        db.collection("users").document(user_id).collection("skills").document(skill_name).set({
+            "name": skill_def["name"],
+            "description": skill_def["description"],
+            "category": skill_def.get("category", "general"),
+            "code_template": skill_def.get("code_template", ""),
+            "parameters": skill_def.get("parameters", {}),
+            "source": skill_def.get("source", "unknown"),
+            "installed_at": time.time(),
+            "enabled": True,
+        })
+    except Exception as e:
+        return {"status": "error", "report": f"Failed to save skill: {e}"}
+
+    # Deploy code to user's sandbox
+    try:
+        from tools.e2b_sandbox import write_sandbox_file
+        code = skill_def.get("code_template", "")
+        if code:
+            write_sandbox_file(user_id, f"/home/user/skills/{skill_name}.py", code)
+    except Exception as e:
+        logger.warning(f"[Skills] Failed to deploy to sandbox: {e}")
+
+    return {
+        "status": "success",
+        "report": (
+            f"Skill '{skill_name}' installed! {skill_def['description']} "
+            f"I can now use this skill whenever you need it."
+        ),
+    }
+
+
+def create_skill(
+    name: str,
+    description: str,
+    code: str,
+    parameters: str,
+    user_id: str,
+    category: str = "custom",
+) -> dict:
+    """
+    Create a brand new skill from scratch. This is Elora's superpower -- she can write
+    new capabilities and save them for future use. The code runs in the user's sandbox.
+
+    Args:
+        name: Unique skill name (lowercase, no spaces, use underscores).
+        description: What this skill does (human-readable).
+        code: Python code that implements the skill. Should print JSON output.
+        parameters: JSON string describing the parameters the skill accepts.
+        category: Category tag (e.g. 'utility', 'finance', 'automation').
+
+    Returns:
+        dict: Creation status.
+    """
+    # Parse parameters
+    try:
+        params = json.loads(parameters) if isinstance(parameters, str) else parameters
+    except json.JSONDecodeError:
+        params = {"input": parameters}
+
+    # Validate the code by running it in the sandbox first (dry run)
+    try:
+        from tools.e2b_sandbox import run_in_sandbox
+        test_result = run_in_sandbox(user_id, code, "python", timeout=30)
+        if test_result.get("status") == "error" and test_result.get("error"):
+            return {
+                "status": "error",
+                "report": (
+                    f"Skill code has an error: {test_result['error'][:300]}. "
+                    "Fix the code and try again."
+                ),
+            }
+    except Exception as e:
+        logger.warning(f"[Skills] Dry run failed: {e}")
+
+    # Save to user's skills
+    try:
+        db = _get_firestore()
+        db.collection("users").document(user_id).collection("skills").document(name).set({
+            "name": name,
+            "description": description,
+            "category": category,
+            "code_template": code,
+            "parameters": params,
+            "source": "user_created",
+            "created_at": time.time(),
+            "enabled": True,
+        })
+    except Exception as e:
+        return {"status": "error", "report": f"Failed to save skill: {e}"}
+
+    # Deploy to sandbox
+    try:
+        from tools.e2b_sandbox import write_sandbox_file
+        write_sandbox_file(user_id, f"/home/user/skills/{name}.py", code)
+    except Exception:
+        pass
+
+    # Also publish to community registry if it looks useful
+    # (could add a flag for this, for now user-created stays private)
+
+    return {
+        "status": "success",
+        "report": (
+            f"Skill '{name}' created and saved! {description} "
+            f"I'll use this automatically whenever it's relevant. "
+            f"It's saved in your personal skill library."
+        ),
+    }
 
 
 def execute_skill(
-    skill_description: str,
-    code: str,
-    language: str = "python",
-    timeout: int = 30,
+    skill_name: str,
+    parameters: str,
+    user_id: str,
 ) -> dict:
-    """Execute a skill/API call in a sandboxed environment.
-
-    This allows Elora to connect to ANY external API by running code
-    in an isolated sandbox. The code can make HTTP requests, parse responses,
-    and return structured results.
+    """
+    Execute an installed skill with the given parameters.
+    Runs in the user's personal sandbox.
 
     Args:
-        skill_description: Brief description of what this skill does.
-        code: Python or JavaScript code to execute. Should print the result as JSON.
-        language: 'python' or 'javascript'.
-        timeout: Max execution time in seconds (5-120).
+        skill_name: Name of the skill to execute.
+        parameters: JSON string of parameter values to fill into the skill template.
 
     Returns:
-        dict with execution results.
+        dict: Execution results.
     """
+    # Load skill definition
+    skill_def = None
+
+    # Check user's installed skills first
     try:
-        from tools.e2b_sandbox import run_code
-        result = run_code(code, language, min(max(timeout, 5), 120))
+        db = _get_firestore()
+        doc = db.collection("users").document(user_id).collection("skills").document(skill_name).get()
+        if doc.exists:
+            skill_def = doc.to_dict()
+    except Exception:
+        pass
+
+    # Fall back to bundled
+    if not skill_def and skill_name in BUNDLED_SKILLS:
+        skill_def = BUNDLED_SKILLS[skill_name]
+
+    if not skill_def:
+        return {
+            "status": "error",
+            "report": (
+                f"Skill '{skill_name}' is not installed. "
+                f"Use search_skills to find it, or create_skill to build a new one."
+            ),
+        }
+
+    # Parse parameters and fill template
+    try:
+        params = json.loads(parameters) if isinstance(parameters, str) else parameters
+    except json.JSONDecodeError:
+        params = {}
+
+    code = skill_def.get("code_template", "")
+    for key, value in params.items():
+        code = code.replace("{" + key + "}", str(value))
+
+    # Execute in user's sandbox
+    try:
+        from tools.e2b_sandbox import run_in_sandbox
+        result = run_in_sandbox(user_id, code, "python", timeout=60)
 
         if result.get("status") == "success":
+            output = result.get("stdout", "") or "\n".join(result.get("results", []))
             return {
                 "status": "success",
-                "skill": skill_description,
-                "output": result.get("stdout", ""),
-                "report": f"Skill '{skill_description}' executed successfully.",
+                "skill": skill_name,
+                "output": output,
+                "report": f"Skill '{skill_name}' executed successfully.",
             }
         else:
             return {
                 "status": "error",
-                "skill": skill_description,
-                "error": result.get("stderr", result.get("report", "Unknown error")),
-                "report": f"Skill '{skill_description}' failed: {result.get('stderr', '')[:200]}",
+                "skill": skill_name,
+                "error": result.get("error", result.get("stderr", "")),
+                "report": f"Skill '{skill_name}' failed: {result.get('error', '')[:200]}",
             }
-
     except Exception as e:
-        logger.error(f"Skill execution failed: {e}")
         return {
             "status": "error",
-            "report": f"Skill execution failed: {str(e)[:200]}",
+            "report": f"Execution failed: {str(e)[:200]}",
         }
 
 
-def list_available_skills() -> dict:
-    """List all available skills/API connections that Elora can use.
-
-    Returns:
-        dict with available skills and their descriptions.
-    """
-    return {
-        "status": "success",
-        "skills": DEFAULT_SKILLS,
-        "report": (
-            "Available skills: Weather API, GitHub API, News API, "
-            "Exchange Rates, Joke API, REST Countries. "
-            "I can also connect to any API by writing code to call it in my sandbox."
-        ),
-    }
-
-
-def install_skill(
-    name: str,
-    description: str,
-    endpoint: str,
-    method: str = "GET",
-    auth_type: str = "none",
-    example: str = "",
+def run_code_in_sandbox(
+    code: str,
+    user_id: str,
+    language: str = "python",
+    timeout: int = 30,
 ) -> dict:
-    """Register a new API skill that Elora can use.
+    """
+    Execute arbitrary code in the user's personal sandbox.
+    The sandbox is persistent -- installed packages and files survive across calls.
 
     Args:
-        name: Name of the skill/API.
-        description: What this API does.
-        endpoint: Base URL of the API.
-        method: HTTP method (GET, POST, etc.).
-        auth_type: Authentication type (none, bearer, api_key, basic).
-        example: Example usage.
+        code: Python or JavaScript code to execute.
+        language: 'python' or 'javascript'.
+        timeout: Max execution time in seconds (5-120).
 
     Returns:
-        dict with registration status.
+        dict: Execution results with stdout, stderr, and any errors.
     """
-    # In a full implementation, this would persist to Firestore
-    # For now, acknowledge the registration
+    try:
+        from tools.e2b_sandbox import run_in_sandbox
+        result = run_in_sandbox(user_id, code, language, min(max(timeout, 5), 120))
+
+        if result.get("status") == "success":
+            output = result.get("stdout", "") or "\n".join(result.get("results", []))
+            return {
+                "status": "success",
+                "output": output,
+                "report": "Code executed successfully in your personal sandbox.",
+            }
+        else:
+            return {
+                "status": "error",
+                "error": result.get("error", result.get("stderr", "")),
+                "stdout": result.get("stdout", ""),
+                "report": f"Code execution failed: {result.get('error', '')[:200]}",
+            }
+    except Exception as e:
+        return {"status": "error", "report": f"Sandbox error: {str(e)[:200]}"}
+
+
+def list_installed_skills(user_id: str) -> dict:
+    """
+    List all skills installed by the user (user-created + installed from registry).
+
+    Returns:
+        dict: List of installed skills with their descriptions and status.
+    """
+    skills = []
+
+    # Get user's installed skills from Firestore
+    try:
+        db = _get_firestore()
+        docs = db.collection("users").document(user_id).collection("skills").stream()
+        for doc in docs:
+            data = doc.to_dict()
+            skills.append({
+                "name": doc.id,
+                "description": data.get("description", ""),
+                "category": data.get("category", "general"),
+                "source": data.get("source", "unknown"),
+                "enabled": data.get("enabled", True),
+                "created_at": data.get("created_at") or data.get("installed_at"),
+            })
+    except Exception as e:
+        logger.warning(f"[Skills] Failed to list user skills: {e}")
+
+    # Also list available bundled skills
+    bundled = []
+    installed_names = {s["name"] for s in skills}
+    for name, skill in BUNDLED_SKILLS.items():
+        bundled.append({
+            "name": name,
+            "description": skill["description"],
+            "category": skill.get("category", "general"),
+            "source": "bundled",
+            "installed": name in installed_names,
+        })
+
+    report_parts = []
+    if skills:
+        report_parts.append(f"{len(skills)} installed skill(s)")
+    report_parts.append(f"{len(bundled)} bundled skill(s) available")
+
     return {
         "status": "success",
-        "report": (
-            f"Skill '{name}' registered. I can now use {endpoint} "
-            f"via {method}. I'll execute calls in my sandbox environment."
-        ),
+        "installed_skills": skills,
+        "bundled_skills": bundled,
+        "report": f"Skills: {', '.join(report_parts)}.",
     }
+
+
+def remove_skill(skill_name: str, user_id: str) -> dict:
+    """
+    Remove/uninstall a skill from the user's profile.
+
+    Args:
+        skill_name: Name of the skill to remove.
+
+    Returns:
+        dict: Removal status.
+    """
+    try:
+        db = _get_firestore()
+        doc_ref = db.collection("users").document(user_id).collection("skills").document(skill_name)
+        doc = doc_ref.get()
+        if not doc.exists:
+            return {"status": "error", "report": f"Skill '{skill_name}' is not installed."}
+        doc_ref.delete()
+    except Exception as e:
+        return {"status": "error", "report": f"Failed to remove skill: {e}"}
+
+    return {
+        "status": "success",
+        "report": f"Skill '{skill_name}' has been removed from your skill library.",
+    }
+
+
+def install_sandbox_package(package: str, user_id: str, language: str = "python") -> dict:
+    """
+    Install a package in the user's personal sandbox. The package persists
+    across conversations -- once installed, it's always available.
+
+    Args:
+        package: Package name to install (e.g. 'pandas', 'numpy', 'openai').
+        language: 'python' (pip) or 'javascript' (npm).
+
+    Returns:
+        dict: Installation status.
+    """
+    try:
+        from tools.e2b_sandbox import install_package
+        result = install_package(user_id, package, language)
+
+        if result.get("status") == "success":
+            output = result.get("stdout", "")
+            return {
+                "status": "success",
+                "report": f"Package '{package}' installed in your sandbox. It's now available for all future code execution and skills.",
+            }
+        else:
+            return {
+                "status": "error",
+                "error": result.get("error", result.get("stderr", "")),
+                "report": f"Failed to install '{package}': {result.get('error', '')[:200]}",
+            }
+    except Exception as e:
+        return {"status": "error", "report": f"Package installation failed: {str(e)[:200]}"}
+
+
+def publish_skill(skill_name: str, user_id: str) -> dict:
+    """
+    Publish a user-created skill to the community registry so other Elora users can discover it.
+
+    Args:
+        skill_name: Name of the skill to publish.
+
+    Returns:
+        dict: Publication status.
+    """
+    # Load from user's skills
+    try:
+        db = _get_firestore()
+        doc = db.collection("users").document(user_id).collection("skills").document(skill_name).get()
+        if not doc.exists:
+            return {"status": "error", "report": f"Skill '{skill_name}' not found in your library."}
+
+        skill_data = doc.to_dict()
+
+        # Publish to community registry
+        db.collection("skill_registry").document(skill_name).set({
+            "name": skill_data["name"],
+            "description": skill_data["description"],
+            "category": skill_data.get("category", "general"),
+            "code_template": skill_data.get("code_template", ""),
+            "parameters": skill_data.get("parameters", {}),
+            "author": user_id,
+            "published_at": time.time(),
+        })
+
+        return {
+            "status": "success",
+            "report": (
+                f"Skill '{skill_name}' published to the community registry! "
+                "Other Elora users can now discover and install it."
+            ),
+        }
+    except Exception as e:
+        return {"status": "error", "report": f"Failed to publish: {e}"}
