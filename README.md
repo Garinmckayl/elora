@@ -177,6 +177,14 @@ Scan the QR code with Expo Go. The app connects to the live backend at:
 https://elora-backend-qf7tbdhnnq-uc.a.run.app
 ```
 
+#### Verify the backend is live (zero dependencies)
+
+```bash
+chmod +x verify.sh && ./verify.sh
+```
+
+Runs 20 checks against the live backend using only `curl` — no Python, no API keys, no Docker. Verifies health, security capabilities (Agntor trust protocol), all 6 bundled skills, REST endpoints, WebSocket, and Cloud Run deployment.
+
 ### Option B: Run the backend locally
 
 ```bash
