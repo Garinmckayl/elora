@@ -23,7 +23,7 @@ import { borderRadius, useTheme, type ThemeColors } from "../theme";
 import { PhotoGrid } from "./PhotoGrid";
 import AudioPlayer from "./AudioPlayer";
 
-const appIcon = require("../../assets/icons/app-icon-1024.png");
+const appIcon = require("../../assets/elora-avatar.png");
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {

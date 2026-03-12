@@ -13,9 +13,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // ---------------------------------------------------------------------------
 
 const lightColors = {
-  // Core palette -- Subtle warm gradient background
-  background: "#FFFFFF",
-  backgroundGradient: ["#FAF9F8", "#F8F6F4", "#F5F3F1"],
+  // Core palette -- Warm gradient background (NOT plain white)
+  background: "#FAF8F5",
+  backgroundGradient: ["#FFF8F2", "#FAF0E8", "#F5EBE0"],
   surface: "#FFFBF7",
   surfaceLight: "#FFF5ED",
   surfaceElevated: "#FFFFFF",
@@ -39,12 +39,12 @@ const lightColors = {
   error: "#E57373",
   warning: "#FFB74D",
 
-  // Gradients -- Subtle warm
-  gradientHero: ["#FAF9F8", "#F8F6F4", "#F5F3F1"],
+  // Gradients -- Warm and visible
+  gradientHero: ["#FFF8F2", "#FAF0E8", "#F5EBE0"],
   gradientGold: ["#FFB87D", "#F4A460"],
   gradientGoldSoft: ["rgba(244, 164, 96, 0.08)", "rgba(244, 164, 96, 0.02)"],
   gradientAccent: ["#7FB8A0", "#5FA380"],
-  gradientWarm: ["rgba(255, 184, 125, 0.06)", "rgba(244, 164, 96, 0.04)"],
+  gradientWarm: ["rgba(255, 184, 125, 0.12)", "rgba(244, 164, 96, 0.08)"],
 
   // Status -- Muted indicators
   connected: "#88C9A1",

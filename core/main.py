@@ -137,6 +137,28 @@ async def agent_skills():
     }
 
 
+@app.get("/user/skills/{user_id}")
+async def user_skills(user_id: str):
+    """Return all skills for a user -- bundled + installed + user-created."""
+    from tools.mcp_skills import list_installed_skills
+    try:
+        result = list_installed_skills(user_id)
+        return {"status": "ok", **result}
+    except Exception as e:
+        return {"status": "ok", "installed_skills": [], "bundled_skills": [], "message": str(e)}
+
+
+@app.delete("/user/skills/{user_id}/{skill_name}")
+async def delete_user_skill(user_id: str, skill_name: str):
+    """Remove an installed skill from the user's library."""
+    from tools.mcp_skills import remove_skill
+    try:
+        result = remove_skill(skill_name=skill_name, user_id=user_id)
+        return {"status": "ok", **result}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 # ---------------------------------------------------------------------------
 # LiveKit Token Endpoint -- issues room tokens for the mobile app
 # ---------------------------------------------------------------------------
@@ -1164,46 +1186,23 @@ async def run_text_agent(
                         for fr in (event.get_function_responses() or []):
                             result = fr.response if isinstance(fr.response, dict) else {"value": str(fr.response)}
 
-                            # For music/image generation, send the large binary payload
-                            # as a separate message so we don't blow up the WebSocket frame
-                            if isinstance(result, dict) and result.get("audio_base64"):
-                                # Send a dedicated audio message first
-                                await websocket.send_text(json.dumps({
-                                    "type": "audio_result",
-                                    "name": fr.name,
-                                    "audio_base64": result["audio_base64"],
-                                    "mime_type": result.get("mime_type", "audio/wav"),
-                                    "duration_seconds": result.get("duration_seconds"),
-                                    "report": result.get("report", ""),
-                                }))
-                                # Then send a slim tool_result without the huge base64
-                                slim = {k: v for k, v in result.items() if k != "audio_base64"}
-                                await websocket.send_text(json.dumps({
-                                    "type": "tool_result",
-                                    "name": fr.name,
-                                    "result": slim,
-                                }))
-                            elif isinstance(result, dict) and result.get("image_base64"):
-                                # Same for images
-                                await websocket.send_text(json.dumps({
-                                    "type": "image_result",
-                                    "name": fr.name,
-                                    "image_base64": result["image_base64"],
-                                    "mime_type": result.get("mime_type", "image/png"),
-                                    "report": result.get("report", ""),
-                                }))
-                                slim = {k: v for k, v in result.items() if k != "image_base64"}
-                                await websocket.send_text(json.dumps({
-                                    "type": "tool_result",
-                                    "name": fr.name,
-                                    "result": slim,
-                                }))
-                            else:
-                                await websocket.send_text(json.dumps({
-                                    "type": "tool_result",
-                                    "name": fr.name,
-                                    "result": result,
-                                }))
+                            # Binary payloads (audio/image) are now stashed
+                            # in a side-channel by the tool wrappers (agent.py)
+                            # so they never bloat the ADK session history.
+                            # Drain and forward them to the client here.
+                            from elora_agent.shared import drain_binary_payloads
+                            for payload in drain_binary_payloads():
+                                try:
+                                    await websocket.send_text(json.dumps(payload))
+                                except Exception:
+                                    pass
+
+                            # Send the slim tool_result (no audio_base64/image_base64)
+                            await websocket.send_text(json.dumps({
+                                "type": "tool_result",
+                                "name": fr.name,
+                                "result": result,
+                            }))
                 except Exception as e:
                     logger.warning(f"[Text WS] Failed to stream tool event: {e}")
 
@@ -1892,8 +1891,33 @@ async def websocket_live(
                                     execute_tool, fc.name, fc.args or {}, resolved_user_id,
                                     browser_cb if fc.name == "browse_web" else None,
                                 )
+
+                                # Strip large binary payloads before sending to Gemini
+                                # (they would bloat the context and crash subsequent turns)
+                                live_result = result
+                                if isinstance(result, dict):
+                                    binary_keys = [k for k in ("audio_base64", "image_base64")
+                                                   if k in result and isinstance(result.get(k), str) and len(result.get(k, "")) > 500]
+                                    if binary_keys:
+                                        # Send binary data to client first
+                                        for bk in binary_keys:
+                                            msg_type = "audio_result" if bk == "audio_base64" else "image_result"
+                                            try:
+                                                await websocket.send_text(json.dumps({
+                                                    "type": msg_type,
+                                                    "name": fc.name,
+                                                    bk: result[bk],
+                                                    "mime_type": result.get("mime_type", ""),
+                                                    "duration_seconds": result.get("duration_seconds"),
+                                                    "report": result.get("report", ""),
+                                                }))
+                                            except Exception:
+                                                pass
+                                        # Slim result for Gemini
+                                        live_result = {k: v for k, v in result.items() if k not in binary_keys}
+
                                 function_responses.append(types.FunctionResponse(
-                                    id=fc.id, name=fc.name, response=result,
+                                    id=fc.id, name=fc.name, response=live_result,
                                 ))
                             if call_session:
                                 await call_session.send_tool_response(function_responses=function_responses)

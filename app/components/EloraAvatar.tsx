@@ -19,7 +19,7 @@ interface Props {
 
 export default function EloraAvatar({ state = 'happy', size = 'medium', animated = true }: Props) {
   const { colors } = useTheme();
-  const sizeMap = { small: 40, medium: 60, large: 140 };
+  const sizeMap = { small: 40, medium: 60, large: 170 };
   const avatarSize = sizeMap[size];
   const gifSource = AVATAR_GIFS[state] || AVATAR_GIFS.happy;
 

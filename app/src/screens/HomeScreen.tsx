@@ -44,6 +44,7 @@ interface HomeScreenProps {
   onOpenCamera: () => void;
   onOpenSettings: () => void;
   onOpenJourney?: () => void;
+  onOpenSkills?: () => void;
 }
 
 interface HomeContext {
@@ -66,6 +67,7 @@ export default function HomeScreen({
   onOpenCamera,
   onOpenSettings,
   onOpenJourney,
+  onOpenSkills,
 }: HomeScreenProps) {
   const { colors, shadows, mode } = useTheme();
   const insets = useSafeAreaInsets();
@@ -279,7 +281,7 @@ export default function HomeScreen({
   };
 
   const greeting = getGreeting();
-  const displayName = userName ? userName.split(" ")[0] : "there";
+  const displayName = userName ? userName.split(" ")[0] : "";
   const contextLine = getContextLine();
 
   return (
@@ -328,6 +330,15 @@ export default function HomeScreen({
           </View>
         </View>
         <View style={styles.topRight}>
+          {onOpenSkills && (
+            <TouchableOpacity
+              onPress={onOpenSkills}
+              style={[styles.settingsBtn, { backgroundColor: `${colors.surface}80` }]}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Ionicons name="flash-outline" size={20} color={colors.textTertiary} />
+            </TouchableOpacity>
+          )}
           {onOpenJourney && (
             <TouchableOpacity
               onPress={onOpenJourney}
@@ -362,12 +373,20 @@ export default function HomeScreen({
           ]}
         >
           {/* Greeting */}
-          <Text style={[styles.greetingLabel, { color: colors.textSecondary }]}>
-            {greeting},
-          </Text>
-          <Text style={[styles.nameLabel, { color: colors.textPrimary }]}>
-            {displayName}
-          </Text>
+          {displayName ? (
+            <>
+              <Text style={[styles.greetingLabel, { color: colors.textSecondary }]}>
+                {greeting},
+              </Text>
+              <Text style={[styles.nameLabel, { color: colors.textPrimary }]}>
+                {displayName}
+              </Text>
+            </>
+          ) : (
+            <Text style={[styles.nameLabel, { color: colors.textGold }]}>
+              {greeting}
+            </Text>
+          )}
 
           {/* Elora Avatar -- alive, floating */}
           <Animated.View
@@ -417,7 +436,11 @@ export default function HomeScreen({
           <TouchableOpacity
             style={[
               styles.secondaryBtn,
-              { backgroundColor: `${colors.surface}B3`, borderColor: colors.border },
+              { 
+                backgroundColor: `${colors.surfaceLight}CC`,
+                borderColor: colors.goldMuted,
+                borderWidth: 1.5,
+              },
             ]}
             onPress={() => {
               if (Platform.OS !== "web") {
@@ -429,7 +452,7 @@ export default function HomeScreen({
             }}
             activeOpacity={0.7}
           >
-            <Ionicons name="camera-outline" size={22} color={colors.textSecondary} />
+            <Ionicons name="camera-outline" size={22} color={colors.gold} />
           </TouchableOpacity>
 
           {/* Voice call button -- primary CTA with animated gradient */}
@@ -464,12 +487,16 @@ export default function HomeScreen({
           <TouchableOpacity
             style={[
               styles.secondaryBtn,
-              { backgroundColor: `${colors.surface}B3`, borderColor: colors.border },
+              { 
+                backgroundColor: `${colors.surfaceLight}CC`,
+                borderColor: colors.goldMuted,
+                borderWidth: 1.5,
+              },
             ]}
             onPress={handleCanvasTap}
             activeOpacity={0.7}
           >
-            <Ionicons name="chatbubble-outline" size={22} color={colors.textSecondary} />
+            <Ionicons name="chatbubble-outline" size={22} color={colors.gold} />
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -563,9 +590,9 @@ const styles = StyleSheet.create({
   },
   avatarGlow: {
     position: "absolute",
-    width: 140,
-    height: 140,
-    borderRadius: 70,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
   },
   tapHint: {
     fontSize: 14,

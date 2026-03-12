@@ -36,6 +36,7 @@ import LiveCallScreen from "./src/components/LiveCallScreen";
 import EloraAvatar from "./components/EloraAvatar";
 import OnboardingScreen from "./src/screens/OnboardingScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
+import SkillsScreen from "./src/screens/SkillsScreen";
 import HomeScreen from "./src/screens/HomeScreen";
 import JourneyScreen from "./src/screens/JourneyScreen";
 import { colors as defaultColors, spacing, borderRadius, shadows as defaultShadows, ThemeProvider, useTheme } from "./src/theme";
@@ -132,6 +133,7 @@ function AppInner() {
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showJourney, setShowJourney] = useState(false);
+  const [showSkills, setShowSkills] = useState(false);
   const [showHome, setShowHome] = useState(true);
 
   // Intent from HomeScreen -- tells MainScreen what to do on mount
@@ -224,6 +226,16 @@ function AppInner() {
     </Modal>
   );
 
+  // Skills rendered as a Modal overlay
+  const skillsModal = (
+    <Modal visible={showSkills} animationType="slide" presentationStyle="pageSheet">
+      <SkillsScreen
+        onClose={() => setShowSkills(false)}
+        userId={userId}
+      />
+    </Modal>
+  );
+
   // Show minimalist home screen when not in active conversation
   if (showHome) {
     return (
@@ -246,9 +258,11 @@ function AppInner() {
           }}
           onOpenSettings={() => setShowSettings(true)}
           onOpenJourney={() => setShowJourney(true)}
+          onOpenSkills={() => setShowSkills(true)}
         />
         {settingsModal}
         {journeyModal}
+        {skillsModal}
       </SafeAreaProvider>
     );
   }
@@ -268,6 +282,7 @@ function AppInner() {
       />
       {settingsModal}
       {journeyModal}
+      {skillsModal}
     </SafeAreaProvider>
   );
 }
@@ -851,7 +866,7 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
           )}
           <View style={styles.headerBrand}>
             <Image
-              source={require("./assets/icons/app-icon-1024.png")}
+              source={require("./assets/elora-avatar.png")}
               style={styles.headerLogoImage}
             />
             <View>

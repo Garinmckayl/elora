@@ -1091,7 +1091,23 @@ def generate_image(prompt: str, aspect_ratio: str = "1:1") -> dict:
         dict: Image generation result with base64 data.
     """
     from tools.image_gen import generate_image as _gen
-    return _gen(prompt, aspect_ratio)
+    result = _gen(prompt, aspect_ratio)
+
+    # Stash the large binary payload in a side-channel so it never enters
+    # the ADK session history (which would blow up Gemini's context window).
+    if isinstance(result, dict) and result.get("image_base64"):
+        from elora_agent.shared import stash_binary_payload
+        stash_binary_payload({
+            "type": "image_result",
+            "name": "generate_image",
+            "image_base64": result["image_base64"],
+            "mime_type": result.get("mime_type", "image/png"),
+            "report": result.get("report", ""),
+        })
+        # Return slim result to the ADK (no huge base64 in session history)
+        return {k: v for k, v in result.items() if k != "image_base64"}
+
+    return result
 
 
 # ---- Music Generation ----
@@ -1107,7 +1123,24 @@ def generate_music(prompt: str, duration_seconds: int = 30) -> dict:
         dict: Music generation result with base64 audio data.
     """
     from tools.music_gen import generate_music as _gen
-    return _gen(prompt, duration_seconds)
+    result = _gen(prompt, duration_seconds)
+
+    # Stash the large binary payload in a side-channel so it never enters
+    # the ADK session history (which would blow up Gemini's context window).
+    if isinstance(result, dict) and result.get("audio_base64"):
+        from elora_agent.shared import stash_binary_payload
+        stash_binary_payload({
+            "type": "audio_result",
+            "name": "generate_music",
+            "audio_base64": result["audio_base64"],
+            "mime_type": result.get("mime_type", "audio/wav"),
+            "duration_seconds": result.get("duration_seconds"),
+            "report": result.get("report", ""),
+        })
+        # Return slim result to the ADK (no huge base64 in session history)
+        return {k: v for k, v in result.items() if k != "audio_base64"}
+
+    return result
 
 
 # ---- Restaurant Reservations ----
@@ -1299,6 +1332,17 @@ def publish_skill(skill_name: str) -> dict:
 # Sub-agents (specialists)
 # ---------------------------------------------------------------------------
 
+# Common instruction suffix for all sub-agents: ensures they transfer back
+# to the orchestrator for requests outside their scope.
+_TRANSFER_BACK_INSTRUCTION = (
+    "\n\nIMPORTANT: If the user's request is outside your capabilities, "
+    "you MUST call transfer_to_agent to hand control back to your parent agent. "
+    "NEVER say 'I don't have that capability' or 'I can't help with that' — "
+    "always transfer instead. After completing your task, also transfer back "
+    "to the parent agent so it can handle the next request."
+)
+
+
 web_researcher = Agent(
     name="web_researcher",
     model="gemini-2.0-flash",
@@ -1315,6 +1359,7 @@ web_researcher = Agent(
         "- Be factual. Cite sources when available.\n"
         "- Return a clear, concise summary. Do not waffle.\n"
         "- If the research is insufficient, say so explicitly so the orchestrator can retry."
+        + _TRANSFER_BACK_INSTRUCTION
     ),
     tools=[web_search, fetch_webpage],
 )
@@ -1335,6 +1380,7 @@ browser_worker = Agent(
         "- Start at the most relevant URL when known (e.g. google.com/flights for flight search).\n"
         "- Report the result clearly: what was found or done, the final URL, and any confirmation numbers.\n"
         "- If the task fails, report the exact step where it failed and why."
+        + _TRANSFER_BACK_INSTRUCTION
     ),
     tools=[browse_web],
 )
@@ -1362,6 +1408,7 @@ email_calendar = Agent(
         "Always confirm before sending emails or deleting anything.\n"
         "Always include timezone when creating/updating events.\n"
         "Use search_calendar_events before update or delete to get the event ID."
+        + _TRANSFER_BACK_INSTRUCTION
     ),
     tools=[
         send_email, read_emails, manage_email, batch_manage_emails,
@@ -1387,6 +1434,7 @@ file_memory = Agent(
         "- remember: store a fact or preference to long-term memory\n"
         "- recall: retrieve relevant memories before answering about preferences\n"
         "Always recall relevant context at the start of a task involving user preferences."
+        + _TRANSFER_BACK_INSTRUCTION
     ),
     tools=[save_file, read_file, list_files, delete_file, remember, recall],
 )
