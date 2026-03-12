@@ -8,7 +8,7 @@
  * - Gradient overlays for legibility
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ import { CameraView } from "expo-camera";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme, borderRadius } from "../theme";
 import EloraAvatar from "../../components/EloraAvatar";
 
@@ -83,10 +84,37 @@ export default function LiveCallScreen({
   cameraFacing = "back",
   onFlipCamera,
 }: LiveCallScreenProps) {
-  const { colors, shadows } = useTheme();
+  const { colors, shadows, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const [textInput, setTextInput] = useState("");
   const [showLog, setShowLog] = useState(true);
   const scrollRef = useRef<ScrollView>(null);
+
+  // Dynamic styles that depend on theme + safe area
+  const dynamicStyles = useMemo(() => ({
+    topBar: {
+      top: Math.max(insets.top + 8, 48),
+    },
+    messageLogContainer: {
+      top: Math.max(insets.top + 56, 100),
+    },
+    showLogButton: {
+      top: Math.max(insets.top + 56, 100),
+    },
+    bottomArea: {
+      bottom: Math.max(insets.bottom + 8, 20),
+    },
+    // Warm dark gradient for no-camera mode (matches theme)
+    noCameraGradient: isDark
+      ? [colors.background, "#1C1A18", "#1E1C1A"] as const
+      : ["#1A1816", "#1C1A18", "#1E1C1A"] as const,
+    orbBorderColor: colors.gold,
+    orbBgLight: `rgba(${isDark ? "232, 169, 109" : "212, 168, 83"}, 0.08)`,
+    orbBgMedium: `rgba(${isDark ? "232, 169, 109" : "212, 168, 83"}, 0.04)`,
+    orbBgFaint: `rgba(${isDark ? "232, 169, 109" : "212, 168, 83"}, 0.02)`,
+    orbBorderFaint: `rgba(${isDark ? "232, 169, 109" : "212, 168, 83"}, 0.5)`,
+    sendBtnBg: colors.gold,
+  }), [insets, colors, isDark]);
 
   // -- Animations --
 
@@ -319,13 +347,15 @@ export default function LiveCallScreen({
       ) : (
         <View style={[StyleSheet.absoluteFillObject, styles.noCameraBg]}>
           <LinearGradient
-            colors={["#0A0E1A", "#121829", "#1A2238"]}
+            colors={dynamicStyles.noCameraGradient as unknown as [string, string, ...string[]]}
             style={StyleSheet.absoluteFillObject}
           />
           {/* Elora orb -- multi-layered breathing visualization */}
           <View style={styles.orbContainer}>
             {/* Outer ring -- slowest, largest */}
             <Animated.View style={[styles.orbRing, styles.orbRing3, {
+              borderColor: dynamicStyles.orbBorderFaint,
+              backgroundColor: dynamicStyles.orbBgFaint,
               transform: [
                 { scale: orbScale3 },
                 { rotate: orbRotation.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "-360deg"] }) },
@@ -334,6 +364,8 @@ export default function LiveCallScreen({
             }]} />
             {/* Middle ring */}
             <Animated.View style={[styles.orbRing, styles.orbRing2, {
+              borderColor: dynamicStyles.orbBorderColor,
+              backgroundColor: dynamicStyles.orbBgMedium,
               transform: [
                 { scale: orbScale2 },
                 { rotate: orbRotation.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) },
@@ -342,11 +374,13 @@ export default function LiveCallScreen({
             }]} />
             {/* Inner core -- brightest */}
             <Animated.View style={[styles.orbRing, styles.orbRing1, {
+              borderColor: dynamicStyles.orbBorderColor,
+              backgroundColor: dynamicStyles.orbBgLight,
               transform: [{ scale: orbScale1 }],
               opacity: orbOpacity1,
             }]} />
             {/* Center dot -- always visible */}
-            <View style={styles.orbCenter} />
+            <View style={[styles.orbCenter, { backgroundColor: colors.gold, shadowColor: colors.gold }]} />
             {/* State label */}
             <Text style={styles.orbLabel}>
               {isSpeaking ? "Speaking" : isListening ? "Listening" : isThinking ? "Thinking" : "Elora"}
@@ -370,7 +404,7 @@ export default function LiveCallScreen({
       />
 
       {/* ---- TOP FLOATING UI ---- */}
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { top: dynamicStyles.topBar.top }]}>
         {/* Elora Avatar - shows current state */}
         <EloraAvatar 
           state={isThinking ? 'thinking' : isSpeaking ? 'speaking' : isListening ? 'listening' : 'happy'}
@@ -397,7 +431,7 @@ export default function LiveCallScreen({
 
       {/* ---- REAL-TIME MESSAGE LOG ---- */}
       {showLog && messages.length > 0 && (
-        <View style={styles.messageLogContainer}>
+        <View style={[styles.messageLogContainer, { top: dynamicStyles.messageLogContainer.top }]}>
           <View style={styles.messageLogHeader}>
             <Text style={styles.messageLogTitle}>Live Transcript</Text>
             <TouchableOpacity onPress={() => setShowLog(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -435,7 +469,7 @@ export default function LiveCallScreen({
 
       {/* Collapsed log toggle */}
       {!showLog && messages.length > 0 && (
-        <TouchableOpacity style={styles.showLogButton} onPress={() => setShowLog(true)}>
+        <TouchableOpacity style={[styles.showLogButton, { top: dynamicStyles.showLogButton.top }]} onPress={() => setShowLog(true)}>
           <Ionicons name="chatbubbles-outline" size={14} color="rgba(255,255,255,0.7)" />
           <Text style={styles.showLogButtonText}>Show transcript ({messages.length})</Text>
         </TouchableOpacity>
@@ -461,7 +495,7 @@ export default function LiveCallScreen({
       {/* ---- BOTTOM CONTROLS ---- */}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.bottomArea}
+        style={[styles.bottomArea, { bottom: dynamicStyles.bottomArea.bottom }]}
       >
         {/* Text input row */}
         <View style={styles.inputRow}>
@@ -476,7 +510,7 @@ export default function LiveCallScreen({
               onSubmitEditing={handleSend}
             />
             {textInput.trim() ? (
-              <TouchableOpacity onPress={handleSend} style={styles.sendBtn}>
+              <TouchableOpacity onPress={handleSend} style={[styles.sendBtn, { backgroundColor: colors.gold }]}>
                 <Ionicons name="arrow-up" size={18} color={colors.background} />
               </TouchableOpacity>
             ) : null}
@@ -494,8 +528,9 @@ export default function LiveCallScreen({
           <TouchableOpacity
             style={[
               styles.micButton,
+              { borderColor: colors.gold },
               isMuted && styles.micButtonMuted,
-              !isMuted && !isSpeaking && styles.micButtonActive,
+              !isMuted && !isSpeaking && { backgroundColor: colors.gold, borderColor: colors.gold },
             ]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -613,28 +648,20 @@ const styles = StyleSheet.create({
   orbRing1: {
     width: 120,
     height: 120,
-    borderColor: "#E8A96D",
-    backgroundColor: "rgba(212, 168, 83, 0.08)",
   },
   orbRing2: {
     width: 180,
     height: 180,
-    borderColor: "#E8A96D",
-    backgroundColor: "rgba(212, 168, 83, 0.04)",
     borderStyle: "dashed" as any,
   },
   orbRing3: {
     width: 250,
     height: 250,
-    borderColor: "rgba(212, 168, 83, 0.5)",
-    backgroundColor: "rgba(212, 168, 83, 0.02)",
   },
   orbCenter: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: "#E8A96D",
-    shadowColor: "#E8A96D",
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 12,
@@ -671,7 +698,6 @@ const styles = StyleSheet.create({
   // Top bar
   topBar: {
     position: "absolute",
-    top: Platform.OS === "ios" ? 60 : 40,
     left: 0,
     right: 0,
     flexDirection: "row",
@@ -695,10 +721,10 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "#0A0E1A",
+    backgroundColor: "#1A1816",
   },
   eloraBadgeText: {
-    color: "#0A0E1A",
+    color: "#1A1816",
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 1.5,
@@ -752,7 +778,6 @@ const styles = StyleSheet.create({
   // Real-time message log
   messageLogContainer: {
     position: "absolute",
-    top: Platform.OS === "ios" ? 110 : 90,
     left: 12,
     right: 12,
     bottom: 240,
@@ -820,7 +845,6 @@ const styles = StyleSheet.create({
   },
   showLogButton: {
     position: "absolute",
-    top: Platform.OS === "ios" ? 110 : 90,
     alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
@@ -889,7 +913,6 @@ const styles = StyleSheet.create({
   // Bottom area
   bottomArea: {
     position: "absolute",
-    bottom: Platform.OS === "ios" ? 40 : 20,
     left: 0,
     right: 0,
     zIndex: 10,
@@ -919,7 +942,6 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: "#E8A96D",
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 8,
@@ -947,13 +969,11 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     backgroundColor: "rgba(255,255,255,0.15)",
     borderWidth: 2,
-    borderColor: "#E8A96D",
     alignItems: "center",
     justifyContent: "center",
   },
   micButtonActive: {
-    backgroundColor: "#E8A96D",
-    borderColor: "#E8A96D",
+    borderColor: undefined, // set inline
   },
   micButtonMuted: {
     backgroundColor: "rgba(255,68,68,0.15)",

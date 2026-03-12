@@ -651,7 +651,7 @@ NEVER:
 ## Hackathon Submission Checklist
 
 - [ ] Demo video (4 min) — follow the script in `README.md`
-- [ ] Cloud deployment proof — show `https://elora-backend-453139277365.us-central1.run.app/health`
+- [ ] Cloud deployment proof — show `https://elora-backend-qf7tbdhnnq-uc.a.run.app/health`
 - [ ] Architecture diagram — export from this doc
 - [ ] Blog post (`#GeminiLiveAgentChallenge`)
 - [ ] Devpost submission at https://geminiliveagentchallenge.devpost.com/

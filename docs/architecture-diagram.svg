@@ -112,13 +112,13 @@
 
   <!-- 30+ Tools -->
   <rect x="535" y="398" width="230" height="110" rx="6" fill="#F0FAF5" stroke="#7FB8A0" stroke-width="1"/>
-  <text x="547" y="414" font-size="10" font-weight="600" fill="#2D2D2D">30+ Tools</text>
+  <text x="547" y="414" font-size="10" font-weight="600" fill="#2D2D2D">40+ Tools + Skill System</text>
   <text x="547" y="430" font-size="9" fill="#5FA380">Communication: Gmail, SMS, Push</text>
   <text x="547" y="443" font-size="9" fill="#5FA380">Productivity: Calendar, Slides, Code</text>
   <text x="547" y="456" font-size="9" fill="#5FA380">Memory: Remember, Recall, People, Faces</text>
   <text x="547" y="469" font-size="9" fill="#5FA380">Web: Search, Fetch, Browser (Playwright)</text>
   <text x="547" y="482" font-size="9" fill="#5FA380">Creative: Image Gen, Music, TTS, Recap</text>
-  <text x="547" y="495" font-size="9" fill="#5FA380">Booking: Square Restaurant Reservations</text>
+  <text x="547" y="495" font-size="9" fill="#5FA380">Skills: Search, Install, Create, Execute</text>
 
   <!-- Proactive Engine -->
   <rect x="48" y="485" width="220" height="68" rx="6" fill="#FFF8F0" stroke="#F4A460" stroke-width="1"/>
@@ -139,6 +139,11 @@
   <text x="547" y="536" font-size="10" font-weight="600" fill="#2D2D2D">Vision Pipeline (during calls)</text>
   <text x="547" y="551" font-size="9" fill="#D48845">Camera (3s) -> Face Recognition</text>
   <text x="547" y="564" font-size="9" fill="#D48845">(2-pass Gemini Vision) -> Context Injection</text>
+
+  <!-- Agntor Security -->
+  <rect x="535" y="580" width="230" height="30" rx="6" fill="#FFF0F0" stroke="#D47070" stroke-width="1"/>
+  <text x="547" y="600" font-size="10" font-weight="600" fill="#C04040">Agntor Trust Protocol</text>
+  <text x="700" y="600" font-size="8" fill="#9E9E9E">Prompt Guard | PII | SSRF</text>
 
   <!-- REST Endpoints -->
   <rect x="48" y="560" width="220" height="40" rx="6" fill="#F0F4FA" stroke="#4A90D9" stroke-width="1"/>
@@ -229,7 +234,7 @@
   <text x="828" y="610" font-size="10" font-weight="600" fill="#2D2D2D">Hackathon: Gemini Live Agent Challenge</text>
   <text x="828" y="626" font-size="9" fill="#6B6B6B">Category: Live Agents | Google ADK + GenAI SDK</text>
   <text x="828" y="642" font-size="9" fill="#6B6B6B">Backend: Cloud Run | Frontend: Expo / React Native</text>
-  <text x="828" y="658" font-size="9" fill="#9E9E9E">github.com/your-repo/elora | Doctus AI, 2026</text>
+  <text x="828" y="658" font-size="9" fill="#9E9E9E">github.com/Garinmckayl/elora | Doctus AI, 2026</text>
 
   <!-- ═══════════ KEY FLOW LABELS ═══════════ -->
   <text x="420" y="328" text-anchor="middle" font-size="9" font-weight="600" fill="#4A90D9">WebSocket / WebRTC / REST</text>

@@ -174,7 +174,7 @@ npx expo start --tunnel
 
 Scan the QR code with Expo Go. The app connects to the live backend at:
 ```
-https://elora-backend-453139277365.us-central1.run.app
+https://elora-backend-qf7tbdhnnq-uc.a.run.app
 ```
 
 ### Option B: Run the backend locally
@@ -264,7 +264,7 @@ docker run -p 8080:8080 --env-file .env elora-backend
 ## Live Backend
 
 ```
-https://elora-backend-453139277365.us-central1.run.app
+https://elora-backend-qf7tbdhnnq-uc.a.run.app
 ```
 
 | Endpoint | What |
@@ -443,5 +443,11 @@ CI/CD via GitHub Actions: every push to `main` triggers Docker build, push, and 
 Built for the [Gemini Live Agent Challenge](https://geminiliveagentchallenge.devpost.com/) on Devpost.
 
 **Deadline**: March 16, 2026 | **Prize pool**: $80,000 | **Grand prize**: $25K + Google Cloud Next demo slot
+
+### Bonus Contributions
+
+- **Blog Post:** [I Built a Personal AI Computer With Gemini — Here's How](https://dev.to/zeshama/i-built-a-personal-ai-computer-with-gemini-heres-how-934) (dev.to)
+- **Infrastructure as Code:** [`infra/main.tf`](infra/main.tf) (Terraform) + [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) (CI/CD)
+- **GDG Membership:** [Profile](https://gdg.community.dev/u/m4z26f/#/about)
 
 `#GeminiLiveAgentChallenge`

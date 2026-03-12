@@ -15,6 +15,7 @@ import {
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme, borderRadius } from "../theme";
 
 interface VisionCaptureProps {
@@ -25,7 +26,8 @@ interface VisionCaptureProps {
 
 export default function VisionCapture({ visible, onClose, onCapture }: VisionCaptureProps) {
   const { colors, shadows } = useTheme();
-  const styles = useMemo(() => createStyles(colors, shadows), [colors, shadows]);
+  const insets = useSafeAreaInsets();
+  const styles = useMemo(() => createStyles(colors, shadows, insets.top), [colors, shadows, insets.top]);
   const [permission, requestPermission] = useCameraPermissions();
   const [isCapturing, setIsCapturing] = useState(false);
   const cameraRef = useRef<CameraView>(null);
@@ -135,7 +137,7 @@ export default function VisionCapture({ visible, onClose, onCapture }: VisionCap
   );
 }
 
-function createStyles(colors: any, shadows: any) {
+function createStyles(colors: any, shadows: any, topInset: number = 60) {
   return StyleSheet.create({
     container: {
       flex: 1,
@@ -149,7 +151,7 @@ function createStyles(colors: any, shadows: any) {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      paddingTop: 60,
+      paddingTop: Math.max(topInset + 8, 48),
       paddingHorizontal: 16,
     },
     closeButton: {

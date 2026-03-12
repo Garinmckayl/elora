@@ -31,7 +31,7 @@ except ImportError:
 # Config
 # ---------------------------------------------------------------------------
 
-BACKEND_URL = "wss://elora-backend-453139277365.us-central1.run.app"
+BACKEND_URL = "wss://elora-backend-qf7tbdhnnq-uc.a.run.app"
 TEST_USER_ID = "demo_test_user_" + str(int(time.time()))
 WS_TIMEOUT = 120  # seconds -- some tools take a while (browser, sandbox)
 

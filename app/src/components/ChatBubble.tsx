@@ -225,6 +225,13 @@ const TOOL_LABELS: Record<string, { icon: string; label: string; color: string }
   search_restaurants:            { icon: "restaurant-outline",    label: "Searching restaurants", color: "#FB923C" },
   make_reservation:              { icon: "restaurant-outline",    label: "Making reservation",  color: "#FB923C" },
   execute_skill:                 { icon: "flash-outline",         label: "Running skill",       color: "#A78BFA" },
+  search_skills:                 { icon: "search-outline",        label: "Searching skills",    color: "#A78BFA" },
+  install_skill:                 { icon: "download-outline",      label: "Installing skill",    color: "#A78BFA" },
+  create_skill:                  { icon: "construct-outline",     label: "Creating skill",      color: "#A78BFA" },
+  list_installed_skills:         { icon: "list-outline",          label: "Listing skills",      color: "#A78BFA" },
+  remove_skill:                  { icon: "trash-outline",         label: "Removing skill",      color: "#A78BFA" },
+  publish_skill:                 { icon: "cloud-upload-outline",  label: "Publishing skill",    color: "#A78BFA" },
+  install_sandbox_package:       { icon: "cube-outline",          label: "Installing package",  color: "#6EE7B7" },
   set_reminder:                  { icon: "alarm-outline",         label: "Setting reminder",    color: "#FBBF24" },
   run_code:                      { icon: "code-slash-outline",    label: "Running code",        color: "#6EE7B7" },
 };

@@ -32,5 +32,13 @@ app/credentials/
 docs/progress.md
 infra/terraform.tfvars.example
 
+# Submission / internal docs (not for public repo)
+API_KEYS_FOR_JUDGES.md
+DEVPOST_SUBMISSION.md
+DEVTO_BLOG_POST.md
+REDESIGN_SUMMARY.md
+docs/demo-video-single-phone.md
+docs/gcp-deployment-proof.md
+
 # Build
 *.egg-info/

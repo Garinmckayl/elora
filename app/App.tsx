@@ -629,6 +629,19 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
       Alert.alert("Microphone Permission", "Elora needs microphone access to hear you.");
       return;
     }
+    // If not in a call, auto-start a live call so audio actually goes somewhere
+    if (!inCall) {
+      setInCall(true);
+      setLastEloraText(null);
+      await livekit.startCall();
+      addMessage({
+        id: uid(),
+        role: "elora",
+        content: "[Call started]",
+        timestamp: new Date(),
+      });
+      return;
+    }
     if (!livekit.isConnected) livekit.connect();
     setIsListening(true);
     await startRecording();
@@ -638,16 +651,8 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
     setIsListening(false);
     const uri = await stopRecording();
     if (!uri) return;
-    setIsThinking(true);
-    addMessage({
-      id: uid(),
-      role: "user",
-      content: "[Voice message]",
-      timestamp: new Date(),
-    });
-    // With LiveKit, audio goes directly via WebRTC mic track.
-    // Hold-to-talk outside of a call still uses the text WS for now.
-    // TODO: If not in a LiveKit call, send audio via text WS or start a quick call.
+    // Audio is streamed via LiveKit WebRTC mic track during a call.
+    // No manual send needed -- LiveKit handles it.
   };
 
   // ---- Call mode ----

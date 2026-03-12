@@ -11,7 +11,7 @@
 
 const BACKEND_BASE =
   process.env.EXPO_PUBLIC_ELORA_BACKEND ||
-  "https://elora-backend-453139277365.us-central1.run.app";
+  "https://elora-backend-qf7tbdhnnq-uc.a.run.app";
 
 export const BACKEND_URL = BACKEND_BASE;
 export const WS_URL = BACKEND_BASE.replace(/^http/, "ws") + "/ws";

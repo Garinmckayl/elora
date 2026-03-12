@@ -225,7 +225,7 @@ async def auth_login(user_id: str):
     import urllib.parse
     params = {
         "client_id": OAUTH_CLIENT_ID,
-        "redirect_uri": OAUTH_REDIRECT_URI or f"https://elora-backend-453139277365.us-central1.run.app/auth/callback",
+        "redirect_uri": OAUTH_REDIRECT_URI or f"https://elora-backend-qf7tbdhnnq-uc.a.run.app/auth/callback",
         "response_type": "code",
         "scope": " ".join(OAUTH_SCOPES),
         "access_type": "offline",
@@ -257,7 +257,7 @@ async def auth_callback(code: str = "", state: str = "", error: str = ""):
                 "code": code,
                 "client_id": OAUTH_CLIENT_ID,
                 "client_secret": OAUTH_CLIENT_SECRET,
-                "redirect_uri": OAUTH_REDIRECT_URI or f"https://elora-backend-453139277365.us-central1.run.app/auth/callback",
+                "redirect_uri": OAUTH_REDIRECT_URI or f"https://elora-backend-qf7tbdhnnq-uc.a.run.app/auth/callback",
                 "grant_type": "authorization_code",
             },
         )

@@ -24,6 +24,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme, spacing, borderRadius } from "../theme";
 
 const { width, height } = Dimensions.get("window");
@@ -86,6 +87,7 @@ const slides: Slide[] = [
 
 export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const { colors, shadows } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, shadows), [colors, shadows]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -167,7 +169,7 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
     >
       {/* Skip */}
       {!isLast && (
-        <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
+        <TouchableOpacity style={[styles.skipButton, { top: Math.max(insets.top + 8, 48) }]} onPress={handleSkip}>
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
       )}

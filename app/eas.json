@@ -22,7 +22,7 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_ELORA_BACKEND": "https://elora-backend-453139277365.us-central1.run.app"
+        "EXPO_PUBLIC_ELORA_BACKEND": "https://elora-backend-qf7tbdhnnq-uc.a.run.app"
       },
       "android": {
         "buildType": "apk",
