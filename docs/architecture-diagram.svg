@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Elora Architecture</title></head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" font-family="Inter, -apple-system, sans-serif" font-size="12">
+  <defs>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFB87D"/>
+      <stop offset="100%" style="stop-color:#F4A460"/>
+    </linearGradient>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A90D9"/>
+      <stop offset="100%" style="stop-color:#357ABD"/>
+    </linearGradient>
+    <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7FB8A0"/>
+      <stop offset="100%" style="stop-color:#5FA380"/>
+    </linearGradient>
+    <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#9B8EC8"/>
+      <stop offset="100%" style="stop-color:#7B6FAF"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.1"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="900" fill="#FAFAF8" rx="8"/>
+
+  <!-- Title -->
+  <text x="600" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#2D2D2D">Elora — System Architecture</text>
+  <text x="600" y="58" text-anchor="middle" font-size="13" fill="#9E9E9E">Your Personal AGI, In Your Pocket</text>
+
+  <!-- ═══════════ MOBILE APP LAYER ═══════════ -->
+  <rect x="30" y="75" width="370" height="260" rx="12" fill="#FFF" stroke="#E8D5C0" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="30" y="75" width="370" height="32" rx="12" fill="url(#goldGrad)"/>
+  <rect x="30" y="95" width="370" height="12" fill="url(#goldGrad)"/>
+  <text x="215" y="97" text-anchor="middle" font-size="13" font-weight="700" fill="#FFF">MOBILE APP — Expo / React Native</text>
+
+  <!-- Screens -->
+  <rect x="48" y="118" width="100" height="40" rx="6" fill="#FFF5ED" stroke="#F4A460" stroke-width="1"/>
+  <text x="98" y="134" text-anchor="middle" font-size="10" font-weight="600" fill="#D48845">HomeScreen</text>
+  <text x="98" y="148" text-anchor="middle" font-size="9" fill="#9E9E9E">Tap to chat</text>
+
+  <rect x="158" y="118" width="100" height="40" rx="6" fill="#FFF5ED" stroke="#F4A460" stroke-width="1"/>
+  <text x="208" y="134" text-anchor="middle" font-size="10" font-weight="600" fill="#D48845">MainScreen</text>
+  <text x="208" y="148" text-anchor="middle" font-size="9" fill="#9E9E9E">Chat + Voice</text>
+
+  <rect x="268" y="118" width="115" height="40" rx="6" fill="#FFF5ED" stroke="#F4A460" stroke-width="1"/>
+  <text x="326" y="134" text-anchor="middle" font-size="10" font-weight="600" fill="#D48845">LiveCallScreen</text>
+  <text x="326" y="148" text-anchor="middle" font-size="9" fill="#9E9E9E">Camera + Audio</text>
+
+  <!-- Hooks -->
+  <rect x="48" y="170" width="335" height="70" rx="6" fill="#FFFBF7" stroke="#E8D5C0" stroke-width="1"/>
+  <text x="60" y="186" font-size="10" font-weight="600" fill="#6B6B6B">12 Custom Hooks</text>
+  <text x="60" y="201" font-size="9" fill="#9E9E9E">useElora (WebSocket)  useLiveKit (WebRTC)  useWakeWord</text>
+  <text x="60" y="214" font-size="9" fill="#9E9E9E">useFirebaseAuth  useExpoPush  useFaceMemory  useVoice</text>
+  <text x="60" y="227" font-size="9" fill="#9E9E9E">usePhotoSearch  usePhotoLibrary  useToast</text>
+
+  <!-- Transport labels -->
+  <rect x="48" y="252" width="95" height="22" rx="4" fill="#E8F4FD" stroke="#4A90D9" stroke-width="0.8"/>
+  <text x="96" y="267" text-anchor="middle" font-size="9" font-weight="600" fill="#357ABD">WebSocket</text>
+
+  <rect x="153" y="252" width="95" height="22" rx="4" fill="#E8F4FD" stroke="#4A90D9" stroke-width="0.8"/>
+  <text x="201" y="267" text-anchor="middle" font-size="9" font-weight="600" fill="#357ABD">WebRTC</text>
+
+  <rect x="258" y="252" width="95" height="22" rx="4" fill="#E8F4FD" stroke="#4A90D9" stroke-width="0.8"/>
+  <text x="306" y="267" text-anchor="middle" font-size="9" font-weight="600" fill="#357ABD">REST API</text>
+
+  <!-- Connection arrows from app to backend -->
+  <line x1="96" y1="285" x2="96" y2="355" stroke="#4A90D9" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="96,355 92,347 100,347" fill="#4A90D9"/>
+  <line x1="201" y1="285" x2="201" y2="355" stroke="#4A90D9" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="201,355 197,347 205,347" fill="#4A90D9"/>
+  <line x1="306" y1="285" x2="306" y2="355" stroke="#4A90D9" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <polygon points="306,355 302,347 310,347" fill="#4A90D9"/>
+
+  <!-- ═══════════ BACKEND LAYER ═══════════ -->
+  <rect x="30" y="355" width="750" height="310" rx="12" fill="#FFF" stroke="#C0D4E8" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="30" y="355" width="750" height="32" rx="12" fill="url(#blueGrad)"/>
+  <rect x="30" y="375" width="750" height="12" fill="url(#blueGrad)"/>
+  <text x="405" y="377" text-anchor="middle" font-size="13" font-weight="700" fill="#FFF">GOOGLE CLOUD RUN — FastAPI + Python 3.11</text>
+
+  <!-- WebSocket Endpoints -->
+  <rect x="48" y="398" width="220" height="75" rx="6" fill="#F0F4FA" stroke="#4A90D9" stroke-width="1"/>
+  <text x="60" y="414" font-size="10" font-weight="600" fill="#2D2D2D">WebSocket Endpoints</text>
+  <text x="60" y="429" font-size="9" fill="#6B6B6B">/ws/{uid} — ADK text agent</text>
+  <text x="60" y="442" font-size="9" fill="#6B6B6B">/ws/live/{uid} — Gemini Live API (audio)</text>
+  <text x="60" y="455" font-size="9" fill="#6B6B6B">/ws/wake/{uid} — Wake word detector</text>
+
+  <!-- Agent Hierarchy -->
+  <rect x="280" y="398" width="240" height="110" rx="6" fill="#F5F0FA" stroke="#9B8EC8" stroke-width="1"/>
+  <text x="292" y="414" font-size="10" font-weight="600" fill="#2D2D2D">Agent Hierarchy (Google ADK)</text>
+  <rect x="360" y="422" width="90" height="20" rx="4" fill="#9B8EC8"/>
+  <text x="405" y="436" text-anchor="middle" font-size="9" font-weight="700" fill="#FFF">elora_root</text>
+  <!-- Sub agents -->
+  <rect x="292" y="450" width="68" height="18" rx="3" fill="#E8E0F0" stroke="#9B8EC8" stroke-width="0.8"/>
+  <text x="326" y="463" text-anchor="middle" font-size="8" fill="#7B6FAF">researcher</text>
+  <rect x="365" y="450" width="55" height="18" rx="3" fill="#E8E0F0" stroke="#9B8EC8" stroke-width="0.8"/>
+  <text x="393" y="463" text-anchor="middle" font-size="8" fill="#7B6FAF">browser</text>
+  <rect x="425" y="450" width="82" height="18" rx="3" fill="#E8E0F0" stroke="#9B8EC8" stroke-width="0.8"/>
+  <text x="466" y="463" text-anchor="middle" font-size="8" fill="#7B6FAF">email_calendar</text>
+  <rect x="330" y="474" width="75" height="18" rx="3" fill="#E8E0F0" stroke="#9B8EC8" stroke-width="0.8"/>
+  <text x="368" y="487" text-anchor="middle" font-size="8" fill="#7B6FAF">file_memory</text>
+  <rect x="410" y="474" width="95" height="18" rx="3" fill="#E8E0F0" stroke="#9B8EC8" stroke-width="0.8"/>
+  <text x="458" y="487" text-anchor="middle" font-size="8" fill="#7B6FAF">research_loop</text>
+  <!-- Lines from root to sub agents -->
+  <line x1="380" y1="442" x2="326" y2="450" stroke="#9B8EC8" stroke-width="0.8"/>
+  <line x1="405" y1="442" x2="393" y2="450" stroke="#9B8EC8" stroke-width="0.8"/>
+  <line x1="420" y1="442" x2="466" y2="450" stroke="#9B8EC8" stroke-width="0.8"/>
+
+  <!-- 30+ Tools -->
+  <rect x="535" y="398" width="230" height="110" rx="6" fill="#F0FAF5" stroke="#7FB8A0" stroke-width="1"/>
+  <text x="547" y="414" font-size="10" font-weight="600" fill="#2D2D2D">30+ Tools</text>
+  <text x="547" y="430" font-size="9" fill="#5FA380">Communication: Gmail, SMS, Push</text>
+  <text x="547" y="443" font-size="9" fill="#5FA380">Productivity: Calendar, Slides, Code</text>
+  <text x="547" y="456" font-size="9" fill="#5FA380">Memory: Remember, Recall, People, Faces</text>
+  <text x="547" y="469" font-size="9" fill="#5FA380">Web: Search, Fetch, Browser (Playwright)</text>
+  <text x="547" y="482" font-size="9" fill="#5FA380">Creative: Image Gen, Music, TTS, Recap</text>
+  <text x="547" y="495" font-size="9" fill="#5FA380">Booking: Square Restaurant Reservations</text>
+
+  <!-- Proactive Engine -->
+  <rect x="48" y="485" width="220" height="68" rx="6" fill="#FFF8F0" stroke="#F4A460" stroke-width="1"/>
+  <text x="60" y="501" font-size="10" font-weight="600" fill="#2D2D2D">Proactive Engine (5-min cycle)</text>
+  <text x="60" y="516" font-size="9" fill="#D48845">Observer (no LLM) -> Evaluator (Gemini)</text>
+  <text x="60" y="529" font-size="9" fill="#D48845">-> Dispatcher (push/email)</text>
+  <text x="60" y="542" font-size="9" fill="#9E9E9E">Rate limited: 3/day, 60min cooldown</text>
+
+  <!-- Memory System -->
+  <rect x="280" y="520" width="240" height="68" rx="6" fill="#FFF8F0" stroke="#F4A460" stroke-width="1"/>
+  <text x="292" y="536" font-size="10" font-weight="600" fill="#2D2D2D">3-Layer Memory System</text>
+  <text x="292" y="551" font-size="9" fill="#D48845">L1: Raw vector memories (embeddings)</text>
+  <text x="292" y="564" font-size="9" fill="#D48845">L2: Compacted profile (structured)</text>
+  <text x="292" y="577" font-size="9" fill="#D48845">L3: Session summaries (continuity)</text>
+
+  <!-- Vision Pipeline -->
+  <rect x="535" y="520" width="230" height="55" rx="6" fill="#FFF8F0" stroke="#F4A460" stroke-width="1"/>
+  <text x="547" y="536" font-size="10" font-weight="600" fill="#2D2D2D">Vision Pipeline (during calls)</text>
+  <text x="547" y="551" font-size="9" fill="#D48845">Camera (3s) -> Face Recognition</text>
+  <text x="547" y="564" font-size="9" fill="#D48845">(2-pass Gemini Vision) -> Context Injection</text>
+
+  <!-- REST Endpoints -->
+  <rect x="48" y="560" width="220" height="40" rx="6" fill="#F0F4FA" stroke="#4A90D9" stroke-width="1"/>
+  <text x="60" y="576" font-size="10" font-weight="600" fill="#2D2D2D">REST Endpoints</text>
+  <text x="60" y="590" font-size="9" fill="#6B6B6B">/chat /voice /livekit/token /auth/* /user/*</text>
+
+  <!-- Infrastructure badge -->
+  <rect x="48" y="610" width="717" height="40" rx="6" fill="#F8F8F8" stroke="#D0D0D0" stroke-width="0.8"/>
+  <text x="60" y="626" font-size="9" font-weight="600" fill="#6B6B6B">INFRASTRUCTURE</text>
+  <text x="60" y="640" font-size="9" fill="#9E9E9E">Terraform IaC  |  GitHub Actions CI/CD  |  Docker  |  Cloud Run (2 CPU, 2Gi, auto-scale 0-10)  |  Artifact Registry</text>
+
+  <!-- ═══════════ EXTERNAL SERVICES ═══════════ -->
+  <!-- Google Cloud -->
+  <rect x="810" y="75" width="360" height="175" rx="12" fill="#FFF" stroke="#C0D4E8" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="810" y="75" width="360" height="32" rx="12" fill="url(#blueGrad)"/>
+  <rect x="810" y="95" width="360" height="12" fill="url(#blueGrad)"/>
+  <text x="990" y="97" text-anchor="middle" font-size="13" font-weight="700" fill="#FFF">Google Cloud</text>
+
+  <text x="828" y="125" font-size="10" font-weight="600" fill="#2D2D2D">Firestore</text>
+  <text x="828" y="138" font-size="9" fill="#6B6B6B">Memory, people, reminders,</text>
+  <text x="828" y="151" font-size="9" fill="#6B6B6B">sessions, OAuth tokens</text>
+
+  <text x="990" y="125" font-size="10" font-weight="600" fill="#2D2D2D">Cloud Storage (GCS)</text>
+  <text x="990" y="138" font-size="9" fill="#6B6B6B">User files, face references</text>
+
+  <text x="828" y="170" font-size="10" font-weight="600" fill="#2D2D2D">Firebase Auth</text>
+  <text x="828" y="183" font-size="9" fill="#6B6B6B">Anonymous sign-in</text>
+
+  <text x="990" y="170" font-size="10" font-weight="600" fill="#2D2D2D">Cloud Run</text>
+  <text x="990" y="183" font-size="9" fill="#6B6B6B">Backend hosting</text>
+
+  <text x="828" y="204" font-size="10" font-weight="600" fill="#2D2D2D">Artifact Registry</text>
+  <text x="828" y="217" font-size="9" fill="#6B6B6B">Docker images</text>
+
+  <text x="990" y="204" font-size="10" font-weight="600" fill="#2D2D2D">IAM + APIs</text>
+  <text x="990" y="217" font-size="9" fill="#6B6B6B">Service accounts</text>
+
+  <!-- Google Gemini API -->
+  <rect x="810" y="265" width="360" height="145" rx="12" fill="#FFF" stroke="#C0D4E8" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="810" y="265" width="360" height="32" rx="12" fill="url(#goldGrad)"/>
+  <rect x="810" y="285" width="360" height="12" fill="url(#goldGrad)"/>
+  <text x="990" y="287" text-anchor="middle" font-size="13" font-weight="700" fill="#FFF">Google Gemini API</text>
+
+  <text x="828" y="315" font-size="9" fill="#6B6B6B">gemini-2.0-flash (text agent)</text>
+  <text x="828" y="330" font-size="9" fill="#6B6B6B">gemini-2.5-flash (browser, compaction)</text>
+  <text x="828" y="345" font-size="9" fill="#6B6B6B">gemini-2.5-flash-native-audio (live)</text>
+  <text x="828" y="360" font-size="9" fill="#6B6B6B">text-embedding-004 (768-dim vectors)</text>
+  <text x="828" y="375" font-size="9" fill="#6B6B6B">Imagen 3 (image gen) | Lyria 3 (music)</text>
+  <text x="828" y="390" font-size="9" fill="#6B6B6B">Google Search (grounding)</text>
+
+  <!-- Google Workspace -->
+  <rect x="810" y="425" width="170" height="105" rx="12" fill="#FFF" stroke="#B8D4C8" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="810" y="425" width="170" height="28" rx="12" fill="url(#greenGrad)"/>
+  <rect x="810" y="443" width="170" height="10" fill="url(#greenGrad)"/>
+  <text x="895" y="446" text-anchor="middle" font-size="11" font-weight="700" fill="#FFF">Google Workspace</text>
+  <text x="828" y="470" font-size="9" fill="#6B6B6B">Gmail API</text>
+  <text x="828" y="483" font-size="9" fill="#6B6B6B">Calendar API</text>
+  <text x="828" y="496" font-size="9" fill="#6B6B6B">Slides API</text>
+  <text x="828" y="509" font-size="9" fill="#6B6B6B">Docs API / Drive API</text>
+
+  <!-- Third Party -->
+  <rect x="1000" y="425" width="170" height="135" rx="12" fill="#FFF" stroke="#D0C0E0" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="1000" y="425" width="170" height="28" rx="12" fill="url(#purpleGrad)"/>
+  <rect x="1000" y="443" width="170" height="10" fill="url(#purpleGrad)"/>
+  <text x="1085" y="446" text-anchor="middle" font-size="11" font-weight="700" fill="#FFF">Third-Party</text>
+  <text x="1018" y="470" font-size="9" fill="#6B6B6B">LiveKit Cloud (WebRTC)</text>
+  <text x="1018" y="483" font-size="9" fill="#6B6B6B">E2B (code sandbox)</text>
+  <text x="1018" y="496" font-size="9" fill="#6B6B6B">Twilio (SMS)</text>
+  <text x="1018" y="509" font-size="9" fill="#6B6B6B">Expo Push (notifications)</text>
+  <text x="1018" y="522" font-size="9" fill="#6B6B6B">MemU (memory engine)</text>
+  <text x="1018" y="535" font-size="9" fill="#6B6B6B">Square (restaurants)</text>
+
+  <!-- Connection arrows from backend to external services -->
+  <line x1="780" y1="450" x2="810" y2="160" stroke="#4A90D9" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <polygon points="810,160 806,168 814,168" fill="#4A90D9"/>
+
+  <line x1="780" y1="470" x2="810" y2="340" stroke="#F4A460" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <polygon points="810,340 806,348 814,348" fill="#F4A460"/>
+
+  <line x1="780" y1="490" x2="810" y2="480" stroke="#7FB8A0" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <polygon points="810,480 806,488 814,488" fill="#7FB8A0"/>
+
+  <line x1="780" y1="510" x2="1000" y2="490" stroke="#9B8EC8" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <polygon points="1000,490 996,498 1004,498" fill="#9B8EC8"/>
+
+  <!-- ═══════════ LEGEND ═══════════ -->
+  <rect x="810" y="590" width="360" height="75" rx="8" fill="#FAFAF8" stroke="#E0E0E0" stroke-width="1"/>
+  <text x="828" y="610" font-size="10" font-weight="600" fill="#2D2D2D">Hackathon: Gemini Live Agent Challenge</text>
+  <text x="828" y="626" font-size="9" fill="#6B6B6B">Category: Live Agents | Google ADK + GenAI SDK</text>
+  <text x="828" y="642" font-size="9" fill="#6B6B6B">Backend: Cloud Run | Frontend: Expo / React Native</text>
+  <text x="828" y="658" font-size="9" fill="#9E9E9E">github.com/your-repo/elora | Doctus AI, 2026</text>
+
+  <!-- ═══════════ KEY FLOW LABELS ═══════════ -->
+  <text x="420" y="328" text-anchor="middle" font-size="9" font-weight="600" fill="#4A90D9">WebSocket / WebRTC / REST</text>
+  <text x="790" y="435" font-size="8" fill="#9E9E9E" transform="rotate(-90 790 435)">API calls</text>
+
+</svg>
+</body>
+</html>

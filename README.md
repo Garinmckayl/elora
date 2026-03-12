@@ -56,6 +56,8 @@ Elora integrates [MemU](https://github.com/NevaMind-AI/memU) for production-grad
 
 ## Architecture
 
+> **Visual diagram:** See [`docs/architecture-diagram.svg`](docs/architecture-diagram.svg) for the full system architecture diagram (recommended for judges).
+
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                   MOBILE APP (Expo / React Native)       │
