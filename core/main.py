@@ -113,7 +113,27 @@ async def health():
     return {
         "status": "ok",
         "service": "elora-backend",
-        "version": "0.4.0",
+        "version": "0.5.0",
+    }
+
+
+@app.get("/agent/identity")
+async def agent_identity():
+    """Return Elora's agent identity and security capabilities (Agntor protocol)."""
+    from tools.agntor_security import get_agent_identity
+    return get_agent_identity()
+
+
+@app.get("/agent/skills")
+async def agent_skills():
+    """Return the list of bundled skills available."""
+    from tools.mcp_skills import BUNDLED_SKILLS
+    return {
+        "bundled_skills": [
+            {"name": k, "description": v["description"], "category": v.get("category", "general")}
+            for k, v in BUNDLED_SKILLS.items()
+        ],
+        "count": len(BUNDLED_SKILLS),
     }
 
 
@@ -347,6 +367,9 @@ from elora_agent.agent import (
     describe_person_from_camera, request_photo_search,
     send_sms, lookup_phone_for_person,
     generate_image, generate_music,
+    # Skill system
+    search_skills, install_skill, create_skill, execute_skill,
+    list_installed_skills, remove_skill, install_sandbox_package, publish_skill,
     SYSTEM_INSTRUCTION,
 )
 
@@ -400,6 +423,15 @@ TOOL_FUNCTIONS = {
     "lookup_phone_for_person": lookup_phone_for_person,
     "generate_image": generate_image,
     "generate_music": generate_music,
+    # Skill system
+    "search_skills": search_skills,
+    "install_skill": install_skill,
+    "create_skill": create_skill,
+    "execute_skill": execute_skill,
+    "list_installed_skills": list_installed_skills,
+    "remove_skill": remove_skill,
+    "install_sandbox_package": install_sandbox_package,
+    "publish_skill": publish_skill,
 }
 
 # Function declarations for the Live API (schema derived from docstrings)
@@ -863,6 +895,109 @@ LIVE_TOOL_DECLARATIONS = [
             "required": ["prompt"],
         },
     },
+    # ---- Skill System ----
+    {
+        "name": "search_skills",
+        "description": "Search for skills Elora can learn. Finds capabilities in the bundled library and community registry.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "What you need (e.g. 'crypto prices', 'RSS feeds', 'weather').",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "install_skill",
+        "description": "Install a skill from the library or community registry into the user's personal skill library.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "skill_name": {
+                    "type": "string",
+                    "description": "Name of the skill to install.",
+                },
+            },
+            "required": ["skill_name"],
+        },
+    },
+    {
+        "name": "execute_skill",
+        "description": "Execute an installed skill in the user's personal sandbox with given parameters.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "skill_name": {
+                    "type": "string",
+                    "description": "Name of the installed skill to run.",
+                },
+                "parameters": {
+                    "type": "string",
+                    "description": "JSON string of parameter values for the skill.",
+                },
+            },
+            "required": ["skill_name"],
+        },
+    },
+    {
+        "name": "list_installed_skills",
+        "description": "List all skills in the user's library (installed + bundled).",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
+        "name": "create_skill",
+        "description": "Create a brand new skill from scratch. Write Python code that becomes a reusable capability.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Unique skill name (lowercase, underscores).",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Human-readable description of what this skill does.",
+                },
+                "code": {
+                    "type": "string",
+                    "description": "Python code implementing the skill. Should print JSON output.",
+                },
+                "parameters": {
+                    "type": "string",
+                    "description": "JSON string describing parameters the skill accepts.",
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Category tag (utility, finance, automation, news, etc.).",
+                },
+            },
+            "required": ["name", "description", "code", "parameters"],
+        },
+    },
+    {
+        "name": "install_sandbox_package",
+        "description": "Install a pip/npm package in the user's personal sandbox. Persists across sessions.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "package": {
+                    "type": "string",
+                    "description": "Package name (e.g. 'pandas', 'numpy').",
+                },
+                "language": {
+                    "type": "string",
+                    "description": "'python' or 'javascript'. Defaults to python.",
+                },
+            },
+            "required": ["package"],
+        },
+    },
 ]
 
 # ---------------------------------------------------------------------------
@@ -1156,6 +1291,22 @@ async def websocket_text(
             update_last_active(resolved_user_id)
 
             if msg_type == "text":
+                # ── Agntor Security Pipeline ──
+                try:
+                    from tools.agntor_security import guard_input, redact
+                    guard_result = guard_input(content)
+                    if guard_result["classification"] == "block":
+                        await websocket.send_text(json.dumps({
+                            "type": "text",
+                            "content": "I detected something unusual in that message. Could you rephrase?",
+                        }))
+                        continue
+                    # Redact any secrets/PII from user input before processing
+                    redaction = redact(content, redact_pii=False, redact_secrets=True)
+                    content = redaction["redacted"]
+                except Exception as _guard_err:
+                    logger.debug(f"[Agntor] Guard skipped: {_guard_err}")
+
                 try:
                     response = await run_text_agent(
                         resolved_user_id, session.id, content, websocket=websocket
