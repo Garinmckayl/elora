@@ -25,6 +25,9 @@ import {
   Animated,
   Platform,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTheme } from "../theme";
+import { Ionicons } from "@expo/vector-icons";
 
 interface BrowserModalProps {
   visible: boolean;
@@ -44,6 +47,8 @@ export function BrowserModal({
   stepText,
   onClose,
 }: BrowserModalProps) {
+  const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Pulse the dot to indicate live activity
@@ -63,7 +68,13 @@ export function BrowserModal({
     ? currentUrl.length > 60
       ? currentUrl.slice(0, 57) + "..."
       : currentUrl
-    : "Opening browser…";
+    : "Opening browser\u2026";
+
+  const bgDark = isDark ? "#1A1816" : "#0F0D0B";
+  const surfaceDark = isDark ? "#24201C" : "#1A1714";
+  const borderSubtle = isDark ? "rgba(244,164,96,0.12)" : "rgba(244,164,96,0.15)";
+  const textPrimary = isDark ? "#F5F0EB" : "#F0EBE5";
+  const textSecondary = isDark ? "#B8B0A8" : "#9E9690";
 
   return (
     <Modal
@@ -73,27 +84,28 @@ export function BrowserModal({
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: bgDark, paddingTop: insets.top + 8 }]}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: borderSubtle }]}>
           <View style={styles.headerLeft}>
-            <Animated.View style={[styles.liveDot, { opacity: pulseAnim }]} />
-            <Text style={styles.headerTitle}>Elora is browsing</Text>
+            <Animated.View style={[styles.liveDot, { opacity: pulseAnim, backgroundColor: colors.success || "#88C9A1" }]} />
+            <Text style={[styles.headerTitle, { color: textPrimary }]}>Elora is browsing</Text>
           </View>
           {onClose && (
             <TouchableOpacity onPress={onClose} style={styles.closeButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Text style={styles.closeText}>✕</Text>
+              <Ionicons name="close" size={20} color={textSecondary} />
             </TouchableOpacity>
           )}
         </View>
 
         {/* URL bar */}
-        <View style={styles.urlBar}>
-          <Text style={styles.urlText} numberOfLines={1}>{truncatedUrl}</Text>
+        <View style={[styles.urlBar, { backgroundColor: surfaceDark, borderColor: borderSubtle }]}>
+          <Ionicons name="globe-outline" size={14} color={colors.gold} style={{ marginRight: 6 }} />
+          <Text style={[styles.urlText, { color: textSecondary }]} numberOfLines={1}>{truncatedUrl}</Text>
         </View>
 
         {/* Screenshot */}
-        <View style={styles.screenshotContainer}>
+        <View style={[styles.screenshotContainer, { borderColor: borderSubtle }]}>
           {screenshotBase64 ? (
             <Image
               source={{ uri: `data:image/png;base64,${screenshotBase64}` }}
@@ -102,17 +114,17 @@ export function BrowserModal({
             />
           ) : (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#7C83FD" />
-              <Text style={styles.loadingText}>Starting browser…</Text>
+              <ActivityIndicator size="large" color={colors.gold} />
+              <Text style={[styles.loadingText, { color: textSecondary }]}>Starting browser\u2026</Text>
             </View>
           )}
         </View>
 
         {/* Step narration */}
         {stepText ? (
-          <View style={styles.stepContainer}>
+          <View style={[styles.stepContainer, { backgroundColor: surfaceDark, borderColor: borderSubtle }]}>
             <ScrollView style={styles.stepScroll} showsVerticalScrollIndicator={false}>
-              <Text style={styles.stepText}>{stepText}</Text>
+              <Text style={[styles.stepText, { color: textPrimary }]}>{stepText}</Text>
             </ScrollView>
           </View>
         ) : null}
@@ -124,8 +136,6 @@ export function BrowserModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0A0E1A",
-    paddingTop: Platform.OS === "ios" ? 50 : 30,
   },
   header: {
     flexDirection: "row",
@@ -134,7 +144,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#1E2340",
   },
   headerLeft: {
     flexDirection: "row",
@@ -145,34 +154,31 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: "#48BB78",
   },
   headerTitle: {
-    color: "#E8EAF0",
     fontSize: 16,
     fontWeight: "600",
     letterSpacing: 0.3,
   },
   closeButton: {
-    padding: 4,
-  },
-  closeText: {
-    color: "#9BA3B8",
-    fontSize: 18,
-    fontWeight: "400",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
   urlBar: {
-    backgroundColor: "#141929",
+    flexDirection: "row",
+    alignItems: "center",
     marginHorizontal: 12,
     marginVertical: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#2A3050",
   },
   urlText: {
-    color: "#9BA3B8",
+    flex: 1,
     fontSize: 12,
     fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
   },
@@ -180,10 +186,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#000",
     marginHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "#2A3050",
   },
   screenshot: {
     width: "100%",
@@ -196,17 +201,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   loadingText: {
-    color: "#9BA3B8",
     fontSize: 14,
   },
   stepContainer: {
-    backgroundColor: "#141929",
     marginHorizontal: 12,
     marginTop: 8,
     marginBottom: 16,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#2A3050",
     maxHeight: 90,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -215,7 +217,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stepText: {
-    color: "#C5CBE0",
     fontSize: 12,
     lineHeight: 18,
   },

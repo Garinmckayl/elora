@@ -13,6 +13,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   LayoutAnimation,
+  Animated,
   UIManager,
   Platform,
 } from "react-native";
@@ -295,7 +296,42 @@ function ToolCard({
 }
 
 function ActivityDots({ color }: { color: string }) {
-  return <Text style={{ color, fontSize: 14, marginLeft: 4, letterSpacing: 2 }}>···</Text>;
+  const dot1 = React.useRef(new Animated.Value(0.3)).current;
+  const dot2 = React.useRef(new Animated.Value(0.3)).current;
+  const dot3 = React.useRef(new Animated.Value(0.3)).current;
+
+  React.useEffect(() => {
+    const animate = (dot: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(dot, { toValue: 1, duration: 400, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0.3, duration: 400, useNativeDriver: true }),
+        ])
+      );
+    const a1 = animate(dot1, 0);
+    const a2 = animate(dot2, 150);
+    const a3 = animate(dot3, 300);
+    a1.start(); a2.start(); a3.start();
+    return () => { a1.stop(); a2.stop(); a3.stop(); };
+  }, [dot1, dot2, dot3]);
+
+  return (
+    <View style={{ flexDirection: "row", marginLeft: 6, gap: 3, alignItems: "center" }}>
+      {[dot1, dot2, dot3].map((dot, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            width: 5,
+            height: 5,
+            borderRadius: 2.5,
+            backgroundColor: color,
+            opacity: dot,
+          }}
+        />
+      ))}
+    </View>
+  );
 }
 
 // ---------------------------------------------------------------------------

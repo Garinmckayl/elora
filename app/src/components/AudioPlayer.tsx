@@ -205,13 +205,13 @@ const staticStyles = StyleSheet.create({
     gap: 4,
   },
   progressTrack: {
-    height: 4,
-    borderRadius: 2,
+    height: 8,
+    borderRadius: 4,
     overflow: "hidden",
   },
   progressFill: {
     height: "100%",
-    borderRadius: 2,
+    borderRadius: 4,
   },
   timeRow: {
     flexDirection: "row",

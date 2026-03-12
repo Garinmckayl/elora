@@ -14,9 +14,11 @@ import {
   Alert,
   Linking,
   ActivityIndicator,
+  Animated,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { spacing, borderRadius, useTheme } from "../theme";
 import { BACKEND_URL } from "../config";
 
@@ -35,6 +37,8 @@ export default function SettingsScreen({ onClose, userId, user, onSignIn, onSign
   const [checkingAuth, setCheckingAuth] = useState(true);
   const linkingSubscription = useRef<ReturnType<typeof Linking.addEventListener> | null>(null);
   const { mode, toggleTheme, isDark, colors, shadows } = useTheme();
+  const insets = useSafeAreaInsets();
+  const toggleAnim = useRef(new Animated.Value(isDark ? 1 : 0)).current;
   const styles = useMemo(() => createStyles(colors, shadows), [colors, shadows]);
 
   useEffect(() => {
@@ -85,7 +89,7 @@ export default function SettingsScreen({ onClose, userId, user, onSignIn, onSign
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={onClose} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
@@ -186,7 +190,15 @@ export default function SettingsScreen({ onClose, userId, user, onSignIn, onSign
         {/* Appearance */}
         <Text style={styles.sectionLabel}>APPEARANCE</Text>
         <View style={styles.card}>
-          <TouchableOpacity onPress={toggleTheme} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => {
+            Animated.spring(toggleAnim, {
+              toValue: isDark ? 0 : 1,
+              useNativeDriver: false,
+              friction: 7,
+              tension: 40,
+            }).start();
+            toggleTheme();
+          }} activeOpacity={0.7}>
             <View style={styles.row}>
               <View style={styles.rowIcon}>
                 <Ionicons name={isDark ? "moon-outline" : "sunny-outline"} size={20} color={colors.gold} />
@@ -195,27 +207,35 @@ export default function SettingsScreen({ onClose, userId, user, onSignIn, onSign
                 <Text style={styles.rowLabel}>Theme</Text>
                 <Text style={styles.rowDescription}>{isDark ? "Dark mode" : "Light mode"}</Text>
               </View>
-              <View style={{
+              <Animated.View style={{
                 width: 50,
                 height: 28,
                 borderRadius: 14,
-                backgroundColor: isDark ? colors.gold : "rgba(0,0,0,0.1)",
+                backgroundColor: toggleAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ["rgba(0,0,0,0.1)", colors.gold],
+                }),
                 justifyContent: "center",
                 paddingHorizontal: 2,
               }}>
-                <View style={{
+                <Animated.View style={{
                   width: 24,
                   height: 24,
                   borderRadius: 12,
                   backgroundColor: "#FFFFFF",
-                  alignSelf: isDark ? "flex-end" : "flex-start",
+                  transform: [{
+                    translateX: toggleAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, 22],
+                    }),
+                  }],
                   shadowColor: "#000",
                   shadowOffset: { width: 0, height: 1 },
                   shadowOpacity: 0.2,
                   shadowRadius: 2,
                   elevation: 2,
                 }} />
-              </View>
+              </Animated.View>
             </View>
           </TouchableOpacity>
         </View>
@@ -226,7 +246,7 @@ export default function SettingsScreen({ onClose, userId, user, onSignIn, onSign
           <SettingsRow
             icon="sparkles"
             label="Elora"
-            description="v1.0.0 -- Personal AGI"
+            description="v1.0.0 -- Personal AI Computer"
           />
           <View style={styles.divider} />
           <SettingsRow
@@ -351,7 +371,6 @@ function createStyles(colors: any, shadows: any) {
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingTop: 60,
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,

@@ -20,9 +20,15 @@ import time
 import logging
 from typing import Optional
 
+import httpx
+
 logger = logging.getLogger("elora.skills")
 
 E2B_API_KEY = os.getenv("E2B_API_KEY", "")
+
+# ClawHub -- OpenClaw community skill registry
+CLAWHUB_API = "https://clawhub.ai/api/v1"
+CLAWHUB_TIMEOUT = 8  # seconds
 
 
 def _get_firestore():
@@ -229,6 +235,38 @@ def search_skills(query: str, user_id: str) -> dict:
     except Exception as e:
         logger.warning(f"[Skills] Registry search failed: {e}")
 
+    # Search ClawHub (OpenClaw community skill hub)
+    try:
+        resp = httpx.get(
+            f"{CLAWHUB_API}/skills",
+            params={"limit": 20},
+            timeout=CLAWHUB_TIMEOUT,
+        )
+        if resp.status_code == 200:
+            clawhub_items = resp.json().get("items", [])
+            for item in clawhub_items:
+                slug = item.get("slug", "")
+                display = item.get("displayName", slug)
+                summary = item.get("summary", "")
+                stats = item.get("stats", {})
+                # Match against query
+                if (query_lower in summary.lower() or
+                        query_lower in display.lower() or
+                        query_lower in slug.lower()):
+                    results.append({
+                        "name": slug,
+                        "description": f"{display}: {summary[:200]}",
+                        "category": "clawhub",
+                        "source": "clawhub",
+                        "author": slug,
+                        "downloads": stats.get("downloads", 0),
+                        "stars": stats.get("stars", 0),
+                        "url": f"https://clawhub.ai/{slug}",
+                        "installed": False,
+                    })
+    except Exception as e:
+        logger.warning(f"[Skills] ClawHub search failed: {e}")
+
     # Check which are already installed by this user
     try:
         db = _get_firestore()
@@ -287,10 +325,60 @@ def install_skill(skill_name: str, user_id: str) -> dict:
         except Exception as e:
             logger.warning(f"[Skills] Registry lookup failed: {e}")
 
+    # Check ClawHub (OpenClaw community hub)
+    if not skill_def:
+        try:
+            resp = httpx.get(
+                f"{CLAWHUB_API}/skills",
+                params={"q": skill_name, "limit": 5},
+                timeout=CLAWHUB_TIMEOUT,
+            )
+            if resp.status_code == 200:
+                items = resp.json().get("items", [])
+                for item in items:
+                    slug = item.get("slug", "")
+                    if slug.lower() == skill_name.lower() or skill_name.lower() in slug.lower():
+                        # Convert OpenClaw SKILL.md format to Elora skill definition
+                        readme = item.get("readme", "")
+                        display = item.get("displayName", slug)
+                        summary = item.get("summary", "")
+
+                        # Extract code from readme if present (between ```python blocks)
+                        code_template = ""
+                        if "```python" in readme:
+                            parts = readme.split("```python")
+                            if len(parts) > 1:
+                                code_block = parts[1].split("```")[0].strip()
+                                code_template = code_block
+
+                        # If no code found, create a stub that describes the skill
+                        if not code_template:
+                            code_template = (
+                                f"# ClawHub Skill: {display}\n"
+                                f"# {summary}\n"
+                                f"# Source: https://clawhub.ai/{slug}\n\n"
+                                f"import json\n"
+                                f"print(json.dumps({{'skill': '{slug}', 'status': 'loaded', "
+                                f"'description': '{summary[:200]}'}})"
+                                f")\n"
+                            )
+
+                        skill_def = {
+                            "name": slug,
+                            "description": f"{display}: {summary}",
+                            "category": "clawhub",
+                            "code_template": code_template,
+                            "parameters": {},
+                            "source": "clawhub",
+                        }
+                        break
+        except Exception as e:
+            logger.warning(f"[Skills] ClawHub install lookup failed: {e}")
+
     if not skill_def:
         return {
             "status": "error",
-            "report": f"Skill '{skill_name}' not found in bundled skills or community registry.",
+            "report": f"Skill '{skill_name}' not found in bundled skills, community registry, or ClawHub.",
         }
 
     # Save to user's skills collection

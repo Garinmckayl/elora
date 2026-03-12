@@ -37,6 +37,7 @@ import EloraAvatar from "./components/EloraAvatar";
 import OnboardingScreen from "./src/screens/OnboardingScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 import HomeScreen from "./src/screens/HomeScreen";
+import JourneyScreen from "./src/screens/JourneyScreen";
 import { colors as defaultColors, spacing, borderRadius, shadows as defaultShadows, ThemeProvider, useTheme } from "./src/theme";
 import { WS_URL, BACKEND_URL } from "./src/config";
 
@@ -130,6 +131,7 @@ function AppInner() {
   const { colors, shadows, isDark } = useTheme();
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showJourney, setShowJourney] = useState(false);
   const [showHome, setShowHome] = useState(true);
 
   // Intent from HomeScreen -- tells MainScreen what to do on mount
@@ -211,6 +213,17 @@ function AppInner() {
     </Modal>
   );
 
+  // Journey rendered as a Modal overlay
+  const journeyModal = (
+    <Modal visible={showJourney} animationType="slide" presentationStyle="pageSheet">
+      <JourneyScreen
+        onClose={() => setShowJourney(false)}
+        userId={userId}
+        idToken={idToken}
+      />
+    </Modal>
+  );
+
   // Show minimalist home screen when not in active conversation
   if (showHome) {
     return (
@@ -232,8 +245,10 @@ function AppInner() {
             setShowHome(false);
           }}
           onOpenSettings={() => setShowSettings(true)}
+          onOpenJourney={() => setShowJourney(true)}
         />
         {settingsModal}
+        {journeyModal}
       </SafeAreaProvider>
     );
   }
@@ -252,6 +267,7 @@ function AppInner() {
         onIntentConsumed={() => setInitialIntent(null)}
       />
       {settingsModal}
+      {journeyModal}
     </SafeAreaProvider>
   );
 }

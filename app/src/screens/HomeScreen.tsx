@@ -43,6 +43,7 @@ interface HomeScreenProps {
   onOpenVoice: () => void;
   onOpenCamera: () => void;
   onOpenSettings: () => void;
+  onOpenJourney?: () => void;
 }
 
 interface HomeContext {
@@ -64,6 +65,7 @@ export default function HomeScreen({
   onOpenVoice,
   onOpenCamera,
   onOpenSettings,
+  onOpenJourney,
 }: HomeScreenProps) {
   const { colors, shadows, mode } = useTheme();
   const insets = useSafeAreaInsets();
@@ -325,13 +327,24 @@ export default function HomeScreen({
             </Text>
           </View>
         </View>
-        <TouchableOpacity
-          onPress={onOpenSettings}
-          style={[styles.settingsBtn, { backgroundColor: `${colors.surface}80` }]}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Ionicons name="settings-outline" size={20} color={colors.textTertiary} />
-        </TouchableOpacity>
+        <View style={styles.topRight}>
+          {onOpenJourney && (
+            <TouchableOpacity
+              onPress={onOpenJourney}
+              style={[styles.settingsBtn, { backgroundColor: `${colors.surface}80` }]}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Ionicons name="map-outline" size={20} color={colors.textTertiary} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            onPress={onOpenSettings}
+            style={[styles.settingsBtn, { backgroundColor: `${colors.surface}80` }]}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="settings-outline" size={20} color={colors.textTertiary} />
+          </TouchableOpacity>
+        </View>
       </Animated.View>
 
       {/* Main Canvas -- tap anywhere to type/speak */}
@@ -513,6 +526,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
+  },
+  topRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
 
   // Canvas (tappable area)
