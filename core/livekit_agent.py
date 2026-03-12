@@ -556,29 +556,48 @@ class EloraAgent(Agent):
         from tools.restaurant import cancel_reservation
         return cancel_reservation(confirmation_id)
 
-    # ---- MCP / Dynamic Skills ----
+    # ---- Skill System ----
 
     @function_tool()
-    async def execute_skill(self, context: RunContext, skill_description: str, code: str, language: str = "python", timeout: int = 30) -> dict:
-        """Executes a dynamic API call or skill in a secure sandbox. Use this to connect to ANY external API.
-
-        Write Python or JavaScript code that makes HTTP requests, processes data, and prints
-        the result as JSON. The code runs in an isolated sandbox with network access.
+    async def search_skills(self, context: RunContext, query: str) -> dict:
+        """Search for skills Elora can learn. Searches bundled and community registry.
 
         Args:
-            skill_description: Brief description of what this skill does.
-            code: Python or JavaScript code to execute. Should print results.
-            language: 'python' or 'javascript'.
-            timeout: Max execution time in seconds.
+            query: What you need (e.g. "crypto prices", "RSS feeds", "weather").
         """
-        from tools.mcp_skills import execute_skill
-        return execute_skill(skill_description, code, language, timeout)
+        from elora_agent.shared import get_user_id
+        from tools.mcp_skills import search_skills
+        return search_skills(query, get_user_id())
 
     @function_tool()
-    async def list_available_skills(self, context: RunContext) -> dict:
-        """Lists all pre-configured API skills and connections available."""
-        from tools.mcp_skills import list_available_skills
-        return list_available_skills()
+    async def install_skill(self, context: RunContext, skill_name: str) -> dict:
+        """Install a skill from the library or community registry.
+
+        Args:
+            skill_name: Name of the skill to install.
+        """
+        from elora_agent.shared import get_user_id
+        from tools.mcp_skills import install_skill
+        return install_skill(skill_name, get_user_id())
+
+    @function_tool()
+    async def execute_skill(self, context: RunContext, skill_name: str, parameters: str = "{}") -> dict:
+        """Execute an installed skill in the user's personal sandbox.
+
+        Args:
+            skill_name: Name of the skill to run.
+            parameters: JSON string of parameter values.
+        """
+        from elora_agent.shared import get_user_id
+        from tools.mcp_skills import execute_skill
+        return execute_skill(skill_name, parameters, get_user_id())
+
+    @function_tool()
+    async def list_installed_skills(self, context: RunContext) -> dict:
+        """List all skills in the user's library."""
+        from elora_agent.shared import get_user_id
+        from tools.mcp_skills import list_installed_skills
+        return list_installed_skills(get_user_id())
 
     # ---- Time ----
 

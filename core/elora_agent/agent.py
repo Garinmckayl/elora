@@ -181,6 +181,29 @@ Direct tools (use yourself):
 - remember / recall
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SKILL SYSTEM — YOUR SUPERPOWER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+You can learn new skills on the fly. This is what makes you a personal AI computer, not just a chatbot.
+
+- search_skills(query) — find skills in the bundled library or community registry
+- install_skill(skill_name) — install a skill to the user's personal library
+- create_skill(name, description, code, parameters) — CREATE a brand new skill from scratch
+- execute_skill(skill_name, parameters) — run an installed skill in the user's sandbox
+- list_installed_skills() — show what's installed
+- remove_skill(skill_name) — uninstall a skill
+- install_sandbox_package(package) — install a pip/npm package in the user's sandbox
+- publish_skill(skill_name) — share a user-created skill with the community
+
+When the user needs something you can't do with your built-in tools:
+1. First search_skills to see if one exists
+2. If found, install_skill and then execute_skill
+3. If not found, CREATE a new skill with create_skill — write the code yourself
+4. The skill is saved permanently in the user's library for future use
+
+The user has their OWN personal sandbox (powered by E2B). Packages they install persist.
+Files they create persist. Skills they install persist. It's their personal computer in the cloud.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PEOPLE — THE MOST PERSONAL THING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 You know the people who matter to the user. This is what makes you truly personal.
@@ -314,16 +337,18 @@ You can search for restaurants and make reservations:
 - After booking, share the confirmation ID.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DYNAMIC API CONNECTIONS (MCP/SKILLS)
+PERSONAL SANDBOX & CODE EXECUTION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-You can connect to ANY external API using execute_skill(). This runs code in a secure sandbox
-with full network access. Use this when:
-- The user asks for data from a specific service (weather, stocks, news, etc.)
-- You need to call an API that isn't one of your built-in tools
-- The user asks you to "check", "fetch", "look up" something from a specific source
+Each user has their own personal sandbox — an isolated cloud computer (via E2B).
+This is NOT shared with anyone else. Packages installed persist. Files persist.
+Skills installed persist. It's the user's personal compute environment.
 
-Write clean Python code that makes the API call, parses the response, and prints the result.
-The sandbox has requests, json, and standard library pre-installed.
+Use run_code() for one-off code execution (calculations, data processing, scripts).
+Use the skill system (search_skills, install_skill, create_skill, execute_skill) for
+reusable capabilities. When the user needs something new, create a skill for it.
+
+The sandbox has requests, json, beautifulsoup4, feedparser, pyyaml pre-installed.
+Use install_sandbox_package() to add more packages — they persist across sessions.
 """
 
 # ---------------------------------------------------------------------------
@@ -750,8 +775,9 @@ def run_code(language: str, code: str, timeout: int = 30) -> dict:
     Returns:
         dict: status, stdout, stderr, results (list of output strings), error (if any).
     """
-    from tools.e2b_sandbox import run_code as _run
-    return _run(language, code, timeout)
+    from tools.e2b_sandbox import run_in_sandbox
+    user_id = get_user_id()
+    return run_in_sandbox(user_id, code, language, timeout)
 
 
 # ---------------------------------------------------------------------------
@@ -1141,35 +1167,132 @@ def cancel_reservation(confirmation_id: str) -> dict:
     return _cancel(confirmation_id)
 
 
-# ---- MCP / Dynamic Skills ----
+# ---- Skill System ----
 
-def execute_skill(skill_description: str, code: str, language: str = "python", timeout: int = 30) -> dict:
-    """Executes a dynamic API call or skill in a secure sandbox. Use this to connect to ANY external API.
+def search_skills(query: str) -> dict:
+    """Search for skills that Elora can learn. Searches bundled skills and community registry.
 
-    Write Python or JavaScript code that makes HTTP requests, processes data, and prints
-    the result as JSON. The code runs in an isolated sandbox with network access.
+    Use this when the user needs a capability you don't have, or asks to find/discover skills.
 
     Args:
-        skill_description: Brief description of what this skill does.
-        code: Python or JavaScript code to execute. Should print results.
-        language: 'python' or 'javascript'.
-        timeout: Max execution time in seconds.
+        query: What the user needs (e.g. "track crypto prices", "read RSS feeds", "weather").
 
     Returns:
-        dict: Execution results.
+        dict: Matching skills with name, description, source, and install status.
     """
+    user_id = get_user_id()
+    from tools.mcp_skills import search_skills as _search
+    return _search(query, user_id)
+
+
+def install_skill(skill_name: str) -> dict:
+    """Install a skill from the bundled library or community registry.
+
+    After installation, the skill is saved to the user's profile and deployed
+    to their personal sandbox. Use search_skills first to find available skills.
+
+    Args:
+        skill_name: Name of the skill to install (from search results).
+
+    Returns:
+        dict: Installation status.
+    """
+    user_id = get_user_id()
+    from tools.mcp_skills import install_skill as _install
+    return _install(skill_name, user_id)
+
+
+def create_skill(name: str, description: str, code: str, parameters: str, category: str = "custom") -> dict:
+    """Create a brand new skill from scratch. This is your superpower -- write new capabilities
+    and save them for future use. The code is tested in the user's sandbox before saving.
+
+    Use this when no existing skill fits what the user needs. Write Python code that
+    accomplishes the task and save it as a reusable skill.
+
+    Args:
+        name: Unique skill name (lowercase, underscores, no spaces).
+        description: Human-readable description of what this skill does.
+        code: Python code implementing the skill. Should print JSON output.
+        parameters: JSON string of parameters the skill accepts (e.g. '{"city": "City name"}').
+        category: Category tag (utility, finance, automation, news, etc.).
+
+    Returns:
+        dict: Creation and validation status.
+    """
+    user_id = get_user_id()
+    from tools.mcp_skills import create_skill as _create
+    return _create(name, description, code, parameters, user_id, category)
+
+
+def execute_skill(skill_name: str, parameters: str = "{}") -> dict:
+    """Execute an installed skill with the given parameters. Runs in the user's personal sandbox.
+
+    Args:
+        skill_name: Name of the installed skill to run.
+        parameters: JSON string of parameter values (e.g. '{"location": "London"}').
+
+    Returns:
+        dict: Execution output from the skill.
+    """
+    user_id = get_user_id()
     from tools.mcp_skills import execute_skill as _exec
-    return _exec(skill_description, code, language, timeout)
+    return _exec(skill_name, parameters, user_id)
 
 
-def list_available_skills() -> dict:
-    """Lists all pre-configured API skills and connections available.
+def list_installed_skills() -> dict:
+    """List all skills in the user's library (installed + bundled).
 
     Returns:
-        dict: Available skills.
+        dict: Installed skills and available bundled skills.
     """
-    from tools.mcp_skills import list_available_skills as _list
-    return _list()
+    user_id = get_user_id()
+    from tools.mcp_skills import list_installed_skills as _list
+    return _list(user_id)
+
+
+def remove_skill(skill_name: str) -> dict:
+    """Remove a skill from the user's library.
+
+    Args:
+        skill_name: Name of the skill to uninstall.
+
+    Returns:
+        dict: Removal status.
+    """
+    user_id = get_user_id()
+    from tools.mcp_skills import remove_skill as _remove
+    return _remove(skill_name, user_id)
+
+
+def install_sandbox_package(package: str, language: str = "python") -> dict:
+    """Install a package in the user's personal sandbox. Persists across sessions.
+
+    Use this when a skill or code execution needs a package that isn't pre-installed.
+
+    Args:
+        package: Package name (e.g. 'pandas', 'numpy', 'openai').
+        language: 'python' (pip) or 'javascript' (npm).
+
+    Returns:
+        dict: Installation status.
+    """
+    user_id = get_user_id()
+    from tools.mcp_skills import install_sandbox_package as _install_pkg
+    return _install_pkg(package, user_id, language)
+
+
+def publish_skill(skill_name: str) -> dict:
+    """Publish a user-created skill to the community registry for other users to discover.
+
+    Args:
+        skill_name: Name of the skill to publish.
+
+    Returns:
+        dict: Publication status.
+    """
+    user_id = get_user_id()
+    from tools.mcp_skills import publish_skill as _publish
+    return _publish(skill_name, user_id)
 
 
 # ---------------------------------------------------------------------------
@@ -1371,7 +1494,9 @@ root_agent = Agent(
         send_sms, lookup_phone_for_person,
         generate_image, generate_music,
         search_restaurants, make_reservation, cancel_reservation,
-        execute_skill, list_available_skills,
+        # Skill system
+        search_skills, install_skill, create_skill, execute_skill,
+        list_installed_skills, remove_skill, install_sandbox_package, publish_skill,
     ],
     sub_agents=[web_researcher, browser_worker, email_calendar, file_memory, research_loop],
 )
@@ -1449,7 +1574,9 @@ text_agent = Agent(
         send_sms, lookup_phone_for_person,
         generate_image, generate_music,
         search_restaurants, make_reservation, cancel_reservation,
-        execute_skill, list_available_skills,
+        # Skill system
+        search_skills, install_skill, create_skill, execute_skill,
+        list_installed_skills, remove_skill, install_sandbox_package, publish_skill,
     ],
     sub_agents=_make_sub_agents_for_text(),
 )
