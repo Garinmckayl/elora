@@ -1453,21 +1453,28 @@ print(json.dumps({{
     import json as _json
 
     # Parse the JSON output from the sandbox
+    # E2B returns results as a list of text outputs from print() calls
     if result.get("status") == "success" and result.get("results"):
-        try:
-            parsed = _json.loads(result["results"][0])
-            return parsed
-        except (_json.JSONDecodeError, IndexError):
-            pass
+        for r in result["results"]:
+            try:
+                text = r if isinstance(r, str) else str(r)
+                parsed = _json.loads(text)
+                if isinstance(parsed, dict):
+                    return parsed
+            except (_json.JSONDecodeError, TypeError):
+                continue
 
-    # If stdout has JSON
-    if result.get("stdout"):
+    # If stdout has JSON (stdout can be str or list)
+    stdout_val = result.get("stdout", "")
+    if stdout_val:
         try:
-            for line in result["stdout"].strip().split("\n"):
+            if isinstance(stdout_val, list):
+                stdout_val = "\n".join(str(s) for s in stdout_val)
+            for line in str(stdout_val).strip().split("\n"):
                 line = line.strip()
                 if line.startswith("{"):
                     return _json.loads(line)
-        except (_json.JSONDecodeError, ValueError):
+        except (_json.JSONDecodeError, ValueError, AttributeError):
             pass
 
     return result
