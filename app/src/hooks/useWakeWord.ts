@@ -103,21 +103,35 @@ export function useWakeWord({
       return;
     }
 
-    const { granted } = await Audio.requestPermissionsAsync();
+    let granted = false;
+    try {
+      const perm = await Audio.requestPermissionsAsync();
+      granted = perm.granted;
+    } catch (permErr) {
+      console.warn("[Wake] Permission request failed:", permErr);
+      return;
+    }
     if (!granted) {
       console.warn("[Wake] Mic permission denied");
       return;
     }
 
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: true,
-      interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_MIX_WITH_OTHERS,
-      shouldDuckAndroid: false,
-      interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
-      playThroughEarpieceAndroid: false,
-    });
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+        // Use numeric values directly -- expo-av 16.x removed the
+        // Audio.INTERRUPTION_MODE_* constants in favour of enums.
+        // 1 = MixWithOthers (iOS), 1 = DoNotMix (Android)
+        interruptionModeIOS: 1,
+        shouldDuckAndroid: false,
+        interruptionModeAndroid: 1,
+        playThroughEarpieceAndroid: false,
+      });
+    } catch (modeErr) {
+      console.warn("[Wake] Audio mode setup error (non-fatal):", modeErr);
+    }
 
     recordingRef.current = true;
     console.log("[Wake] Audio stream loop starting");
@@ -215,7 +229,9 @@ export function useWakeWord({
     // Start audio stream after a short delay to let WS connect
     const startDelay = setTimeout(() => {
       if (recordingRef.current) return; // already running
-      streamLoop();
+      streamLoop().catch((err) => {
+        console.warn("[Wake] Stream loop error:", err);
+      });
     }, 1000);
 
     return () => {
