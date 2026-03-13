@@ -359,6 +359,8 @@ You can push code changes directly to GitHub repositories from the cloud sandbox
 - Default repo is 'anomalyco/elora' (your own codebase)
 - Use when the user says "update the changelog", "push this to GitHub", "commit this change", etc.
 - The push happens from a secure cloud sandbox — no local git needed
+- IMPORTANT: Always prefix your commit messages with "elora:" so it's clear YOU made the commit
+  Example: "elora: update changelog with v0.9.1 release notes"
 - After pushing, tell the user the commit hash and that the change is live on GitHub
 """
 
