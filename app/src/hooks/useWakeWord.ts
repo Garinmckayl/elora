@@ -217,6 +217,10 @@ export function useWakeWord({
   }, []);
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
+  // Delay wake word activation significantly after mount to avoid competing
+  // with other audio hooks (useVoice, useLiveKit) for the audio session.
+  // This prevents native crashes from concurrent Audio.requestPermissionsAsync()
+  // and Audio.setAudioModeAsync() calls on Android.
   useEffect(() => {
     if (!enabled) {
       recordingRef.current = false;
@@ -225,17 +229,27 @@ export function useWakeWord({
     }
 
     intentionalRef.current = false;
-    connect();
-    // Start audio stream after a short delay to let WS connect
+
+    // Delay wake word startup by 5 seconds to let other audio hooks settle.
+    // Wake word is a background feature -- it's fine to start later.
     const startDelay = setTimeout(() => {
-      if (recordingRef.current) return; // already running
-      streamLoop().catch((err) => {
-        console.warn("[Wake] Stream loop error:", err);
-      });
-    }, 1000);
+      connect();
+      // Start audio stream after an additional delay to let WS connect
+      const audioDelay = setTimeout(() => {
+        if (recordingRef.current) return; // already running
+        streamLoop().catch((err) => {
+          console.warn("[Wake] Stream loop error:", err);
+        });
+      }, 2000);
+      // Store for cleanup
+      (startDelay as any).__audioDelay = audioDelay;
+    }, 5000);
 
     return () => {
       clearTimeout(startDelay);
+      if ((startDelay as any).__audioDelay) {
+        clearTimeout((startDelay as any).__audioDelay);
+      }
       recordingRef.current = false;
       disconnect();
     };

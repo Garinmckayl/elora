@@ -25,10 +25,23 @@ import {
 import { CameraView } from "expo-camera";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme, borderRadius } from "../theme";
 import EloraAvatar from "../../components/EloraAvatar";
+
+// Safe haptics -- dynamically imported to avoid crash if module fails to load
+let Haptics: any = null;
+try {
+  Haptics = require("expo-haptics");
+} catch {
+  console.warn("[LiveCall] expo-haptics not available");
+}
+
+const safeHaptic = (style?: string) => {
+  try {
+    Haptics?.impactAsync?.(style ?? Haptics?.ImpactFeedbackStyle?.Medium);
+  } catch {}
+};
 
 /** Minimal message shape — matches useElora.Message */
 interface CallMessage {
@@ -326,7 +339,7 @@ export default function LiveCallScreen({
   };
 
   const handleEndCall = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    safeHaptic(Haptics?.ImpactFeedbackStyle?.Heavy);
     onEndCall();
   };
 
@@ -533,7 +546,7 @@ export default function LiveCallScreen({
               !isMuted && !isSpeaking && { backgroundColor: colors.gold, borderColor: colors.gold },
             ]}
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              safeHaptic(Haptics?.ImpactFeedbackStyle?.Medium);
               onToggleMute?.();
             }}
             activeOpacity={0.8}

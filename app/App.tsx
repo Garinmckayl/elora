@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo, Component, ErrorInfo } from "react";
 import {
   StyleSheet,
   Text,
@@ -42,13 +42,66 @@ import JourneyScreen from "./src/screens/JourneyScreen";
 import { colors as defaultColors, spacing, borderRadius, shadows as defaultShadows, ThemeProvider, useTheme } from "./src/theme";
 import { WS_URL, BACKEND_URL } from "./src/config";
 
+// ---------------------------------------------------------------------------
+// Error Boundary -- prevents total app crash, shows recovery UI
+// ---------------------------------------------------------------------------
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class AppErrorBoundary extends Component<
+  { children: React.ReactNode; onReset?: () => void },
+  ErrorBoundaryState
+> {
+  state: ErrorBoundaryState = { hasError: false, error: null };
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("[ErrorBoundary] Caught:", error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, backgroundColor: "#1A1816", alignItems: "center", justifyContent: "center", padding: 32 }}>
+          <Text style={{ color: "#E8A96D", fontSize: 22, fontWeight: "700", marginBottom: 12 }}>
+            Something went wrong
+          </Text>
+          <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 14, textAlign: "center", marginBottom: 24 }}>
+            {this.state.error?.message || "An unexpected error occurred."}
+          </Text>
+          <TouchableOpacity
+            onPress={() => {
+              this.setState({ hasError: false, error: null });
+              this.props.onReset?.();
+            }}
+            style={{
+              backgroundColor: "#D4A853",
+              paddingHorizontal: 28,
+              paddingVertical: 14,
+              borderRadius: 999,
+            }}
+          >
+            <Text style={{ color: "#1A1816", fontSize: 16, fontWeight: "700" }}>Go Home</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Check if Firebase is configured (has API key set)
 function firebaseConfigured(): boolean {
   return !!(process.env.EXPO_PUBLIC_FIREBASE_API_KEY);
 }
 
 // Simple Sign-In screen
-function SignInScreen({ onSignIn }: { onSignIn: () => Promise<void> }) {
+function SignInScreen({ onSignIn, onSkip }: { onSignIn: () => Promise<void>; onSkip: () => void }) {
   const [loading, setLoading] = useState(false);
   const { colors, shadows } = useTheme();
 
@@ -105,6 +158,15 @@ function SignInScreen({ onSignIn }: { onSignIn: () => Promise<void> }) {
             </Text>
           </LinearGradient>
         </TouchableOpacity>
+        <TouchableOpacity
+          onPress={onSkip}
+          activeOpacity={0.7}
+          style={{ marginTop: 16 }}
+        >
+          <Text style={{ color: colors.textTertiary, fontSize: 15 }}>
+            Continue as Guest
+          </Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -121,14 +183,17 @@ function uid(prefix = "m"): string {
 }
 
 export default function App() {
+  const [resetKey, setResetKey] = useState(0);
   return (
-    <ThemeProvider>
-      <AppInner />
-    </ThemeProvider>
+    <AppErrorBoundary onReset={() => setResetKey((k) => k + 1)}>
+      <ThemeProvider>
+        <AppInner key={resetKey} onFatalReset={() => setResetKey((k) => k + 1)} />
+      </ThemeProvider>
+    </AppErrorBoundary>
   );
 }
 
-function AppInner() {
+function AppInner({ onFatalReset }: { onFatalReset?: () => void }) {
   const { colors, shadows, isDark } = useTheme();
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -149,6 +214,7 @@ function AppInner() {
 
   // Lift Firebase auth to App level so SettingsScreen gets the real userId
   const { uid: firebaseUid, idToken, loading: authLoading, user: authUser, signIn, signOut } = useFirebaseAuth();
+  const [skippedAuth, setSkippedAuth] = useState(false);
   const userId = firebaseUid ?? "anonymous";
 
   // Check if onboarding was completed
@@ -193,11 +259,11 @@ function AppInner() {
   }
 
   // Show sign-in screen if user is not authenticated
-  // (Firebase config is set but no user signed in)
-  if (!authLoading && !authUser && firebaseConfigured()) {
+  // (Firebase config is set but no user signed in -- user can skip to continue as guest)
+  if (!authLoading && !authUser && !skippedAuth && firebaseConfigured()) {
     return (
       <SafeAreaProvider>
-        <SignInScreen onSignIn={signIn} />
+        <SignInScreen onSignIn={signIn} onSkip={() => setSkippedAuth(true)} />
       </SafeAreaProvider>
     );
   }
@@ -269,17 +335,19 @@ function AppInner() {
 
   return (
     <SafeAreaProvider>
-      <MainScreen 
-        onOpenSettings={() => setShowSettings(true)} 
-        appUserId={userId} 
-        appIdToken={idToken} 
-        isDark={isDark} 
-        colors={colors} 
-        shadows={shadows}
-        onBackToHome={() => setShowHome(true)}
-        initialIntent={initialIntent}
-        onIntentConsumed={() => setInitialIntent(null)}
-      />
+      <AppErrorBoundary onReset={() => setShowHome(true)}>
+        <MainScreen 
+          onOpenSettings={() => setShowSettings(true)} 
+          appUserId={userId} 
+          appIdToken={idToken} 
+          isDark={isDark} 
+          colors={colors} 
+          shadows={shadows}
+          onBackToHome={() => setShowHome(true)}
+          initialIntent={initialIntent}
+          onIntentConsumed={() => setInitialIntent(null)}
+        />
+      </AppErrorBoundary>
       {settingsModal}
       {journeyModal}
       {skillsModal}
@@ -418,7 +486,7 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
   });
 
   // Voice recording
-  const { isRecording, hasPermission, startRecording, stopRecording } = useVoice();
+  const { isRecording, hasPermission, ensurePermission, startRecording, stopRecording } = useVoice();
 
   // Ref to sendPhotoSearchResults — used in onPhotoSearchRequest callback (avoids circular dep)
   const sendPhotoSearchResultsRef = useRef<((name: string, uris: string[]) => void) | null>(null);
@@ -482,7 +550,12 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
   const handleWake = useCallback(async () => {
     if (inCall) return; // already in a call
     console.log("[Wake] Auto-starting call");
-    if (!hasPermission) return;
+    if (!hasPermission) {
+      try {
+        const granted = await ensurePermission();
+        if (!granted) return;
+      } catch { return; }
+    }
     setInCall(true);
     setLastEloraText(null);
     livekit.startCall();
@@ -492,7 +565,7 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
       content: "Hey! I'm listening...",
       timestamp: new Date(),
     });
-  }, [inCall, hasPermission, livekit, addMessage]);
+  }, [inCall, hasPermission, ensurePermission, livekit, addMessage]);
 
   const { isListening: wakeListening } = useWakeWord({
     userId,
@@ -515,8 +588,12 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
   const wakePulseAnim = useRef(new Animated.Value(0)).current;
 
   // Connect to LiveKit on mount and when user changes
+  // Delay slightly to avoid racing with other audio hooks on initial mount
   useEffect(() => {
-    livekit.connect();
+    const timer = setTimeout(() => {
+      livekit.connect();
+    }, 1500);
+    return () => clearTimeout(timer);
   }, [livekit.connect]);
 
   // Handle initial intent from HomeScreen (start call, open camera, or show chat)
@@ -526,26 +603,34 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
     onIntentConsumed?.();
 
     if (intent === "voice") {
-      // Auto-start a live call with a small delay so MainScreen finishes mounting
+      // Auto-start a live call with a longer delay so MainScreen and LiveKit finish mounting
       const timer = setTimeout(async () => {
-        if (!hasPermission) {
-          Alert.alert("Microphone Permission", "Elora needs microphone access.");
-          return;
+        try {
+          // Ensure mic permission first (deferred from useVoice)
+          const granted = await ensurePermission();
+          if (!granted) {
+            Alert.alert("Microphone Permission", "Elora needs microphone access.");
+            return;
+          }
+          setInCall(true);
+          setLastEloraText(null);
+          await livekit.startCall();
+          if (cameraPermission?.granted) {
+            setLiveCamera(true);
+            livekit.toggleCamera(true);
+          }
+          addMessage({
+            id: uid(),
+            role: "elora",
+            content: "[Call started - streaming audio]",
+            timestamp: new Date(),
+          });
+        } catch (e) {
+          console.error("[Intent] Failed to start voice call:", e);
+          Alert.alert("Call Error", "Failed to start the call. Please try again.");
+          setInCall(false);
         }
-        setInCall(true);
-        setLastEloraText(null);
-        await livekit.startCall();
-        if (cameraPermission?.granted) {
-          setLiveCamera(true);
-          livekit.toggleCamera(true);
-        }
-        addMessage({
-          id: uid(),
-          role: "elora",
-          content: "[Call started - streaming audio]",
-          timestamp: new Date(),
-        });
-      }, 300);
+      }, 2000); // Longer delay to let LiveKit connect first
       return () => clearTimeout(timer);
     } else if (intent === "camera") {
       setShowCamera(true);
@@ -641,8 +726,11 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
 
   const handleVoicePressIn = async () => {
     if (!hasPermission) {
-      Alert.alert("Microphone Permission", "Elora needs microphone access to hear you.");
-      return;
+      const granted = await ensurePermission();
+      if (!granted) {
+        Alert.alert("Microphone Permission", "Elora needs microphone access to hear you.");
+        return;
+      }
     }
     // If not in a call, auto-start a live call so audio actually goes somewhere
     if (!inCall) {
@@ -690,8 +778,11 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
       });
     } else {
       if (!hasPermission) {
-        Alert.alert("Microphone Permission", "Elora needs microphone access.");
-        return;
+        const granted = await ensurePermission();
+        if (!granted) {
+          Alert.alert("Microphone Permission", "Elora needs microphone access.");
+          return;
+        }
       }
       setInCall(true);
       setLastEloraText(null);

@@ -83,21 +83,26 @@ export function useLiveKit({
 
     try {
       if (_AudioSession?.configureAudio) {
-        await _AudioSession.configureAudio({
-          android: {
-            audioTypeOptions: {
-              manageAudioFocus: true,
-              audioMode: "inCommunication",
-              audioFocusMode: "gain",
-              audioStreamType: "voiceCall",
-              audioAttributesUsageType: "voiceCommunication",
-              audioAttributesContentType: "speech",
+        try {
+          await _AudioSession.configureAudio({
+            android: {
+              audioTypeOptions: {
+                manageAudioFocus: true,
+                audioMode: "inCommunication",
+                audioFocusMode: "gain",
+                audioStreamType: "voiceCall",
+                audioAttributesUsageType: "voiceCommunication",
+                audioAttributesContentType: "speech",
+              },
             },
-          },
-          ios: { defaultOutput: "speaker" },
-        });
-        await _AudioSession.startAudioSession();
-        console.log("[LiveKit] AudioSession started");
+            ios: { defaultOutput: "speaker" },
+          });
+          await _AudioSession.startAudioSession();
+          console.log("[LiveKit] AudioSession started");
+        } catch (audioErr) {
+          console.warn("[LiveKit] AudioSession setup failed (non-fatal):", audioErr);
+          // Continue -- the connection may still work without explicit audio config
+        }
       }
 
       const params = new URLSearchParams({ user_id: userId });

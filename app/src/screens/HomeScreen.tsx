@@ -226,7 +226,7 @@ export default function HomeScreen({
     if (Platform.OS !== "web") {
       import("expo-haptics").then((Haptics) =>
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-      );
+      ).catch(() => {});
     }
     onOpenChat();
   }, [onOpenChat]);
@@ -236,7 +236,7 @@ export default function HomeScreen({
     if (Platform.OS !== "web") {
       import("expo-haptics").then((Haptics) =>
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
-      );
+      ).catch(() => {});
     }
     onOpenVoice();
   }, [onOpenVoice]);
@@ -446,7 +446,7 @@ export default function HomeScreen({
               if (Platform.OS !== "web") {
                 import("expo-haptics").then((Haptics) =>
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
-                );
+                ).catch(() => {});
               }
               onOpenCamera();
             }}

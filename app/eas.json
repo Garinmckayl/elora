@@ -22,7 +22,14 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_ELORA_BACKEND": "https://elora-backend-qf7tbdhnnq-uc.a.run.app"
+        "EXPO_PUBLIC_ELORA_BACKEND": "https://elora-backend-qf7tbdhnnq-uc.a.run.app",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAOonqT5sgUmUFUi-oqg_hSIfrMKQTe8Qc",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "elor-487806.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "elor-487806",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "elor-487806.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "453139277365",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:453139277365:web:bfe954e8bc2f852ca9737c",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "453139277365-97bffftu5u4k7km80vt7g6o10bjmj1ib.apps.googleusercontent.com"
       },
       "android": {
         "buildType": "apk",

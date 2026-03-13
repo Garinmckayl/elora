@@ -66,30 +66,61 @@ export function useVoice() {
   const [hasPermission, setHasPermission] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const recordingRef = useRef<Audio.Recording | null>(null);
+  const permissionCheckedRef = useRef(false);
 
-  // Request mic permission on mount
+  // Check permission status on mount WITHOUT triggering the system dialog.
+  // The actual requestPermissionsAsync() call is deferred to when recording
+  // is first attempted, preventing a crash from concurrent audio session
+  // requests when multiple hooks mount simultaneously.
   useEffect(() => {
     (async () => {
       try {
-        const { granted } = await Audio.requestPermissionsAsync();
+        const { granted } = await Audio.getPermissionsAsync();
         setHasPermission(granted);
+        permissionCheckedRef.current = true;
+        if (granted) {
+          await Audio.setAudioModeAsync({
+            allowsRecordingIOS: true,
+            playsInSilentModeIOS: true,
+            staysActiveInBackground: false,
+            shouldDuckAndroid: true,
+          });
+        }
+      } catch (e) {
+        console.warn("[Voice] Permission check error:", e);
+        permissionCheckedRef.current = true;
+      }
+    })();
+  }, []);
 
+  /** Request permission if not already granted. Returns true if granted. */
+  const ensurePermission = useCallback(async (): Promise<boolean> => {
+    try {
+      const { granted } = await Audio.requestPermissionsAsync();
+      setHasPermission(granted);
+      if (granted) {
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: true,
           playsInSilentModeIOS: true,
           staysActiveInBackground: false,
           shouldDuckAndroid: true,
         });
-      } catch (e) {
-        console.warn("[Voice] Permission/mode setup error:", e);
       }
-    })();
+      return granted;
+    } catch (e) {
+      console.warn("[Voice] Permission request error:", e);
+      return false;
+    }
   }, []);
 
   const startRecording = useCallback(async () => {
     if (!hasPermission) {
-      console.warn("[Voice] No mic permission");
-      return;
+      // Try to request permission on-demand
+      const granted = await ensurePermission();
+      if (!granted) {
+        console.warn("[Voice] No mic permission");
+        return;
+      }
     }
 
     try {
@@ -108,7 +139,7 @@ export function useVoice() {
     } catch (err) {
       console.error("[Voice] Start recording error:", err);
     }
-  }, [hasPermission]);
+  }, [hasPermission, ensurePermission]);
 
   const stopRecording = useCallback(async (): Promise<string | null> => {
     const recording = recordingRef.current;
@@ -142,6 +173,7 @@ export function useVoice() {
   return {
     isRecording,
     hasPermission,
+    ensurePermission,
     startRecording,
     stopRecording,
   };
