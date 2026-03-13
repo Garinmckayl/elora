@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icons/app-icon-1024.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "scheme": "elora",
     "splash": {
       "image": "./assets/splash-icon.png",
