@@ -78,6 +78,13 @@ variable "twilio_phone_number" {
   default     = ""
 }
 
+variable "github_pat" {
+  description = "GitHub Personal Access Token for push_to_github tool"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 # ---------------------------------------------------------------------------
 # Provider
 # ---------------------------------------------------------------------------
@@ -252,6 +259,10 @@ resource "google_cloud_run_v2_service" "elora_backend" {
       env {
         name  = "TWILIO_PHONE_NUMBER"
         value = var.twilio_phone_number
+      }
+      env {
+        name  = "GITHUB_PAT"
+        value = var.github_pat
       }
     }
 

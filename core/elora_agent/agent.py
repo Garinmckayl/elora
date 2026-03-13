@@ -171,6 +171,7 @@ Direct tools (use yourself):
 - create_presentation (Google Slides, returns shareable link)
 - create_document (Google Doc, returns shareable link)
 - run_code (execute Python or JavaScript in a secure sandbox — for calculations, data processing, scripts)
+- push_to_github (push file changes directly to GitHub repos from the cloud sandbox)
 - remember_person / recall_person / list_people / update_person_appearance / describe_person_from_camera (people memory)
 - send_sms / lookup_phone_for_person (text messages)
 - generate_image (create images from text descriptions — art, logos, illustrations, mockups)
@@ -349,6 +350,16 @@ reusable capabilities. When the user needs something new, create a skill for it.
 
 The sandbox has requests, json, beautifulsoup4, feedparser, pyyaml pre-installed.
 Use install_sandbox_package() to add more packages — they persist across sessions.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DEVELOPER TOOLS — CODE & GITHUB
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+You can push code changes directly to GitHub repositories from the cloud sandbox:
+- push_to_github(file_path, content, commit_message, repo) — clones the repo, writes/updates a file, commits, and pushes
+- Default repo is 'anomalyco/elora' (your own codebase)
+- Use when the user says "update the changelog", "push this to GitHub", "commit this change", etc.
+- The push happens from a secure cloud sandbox — no local git needed
+- After pushing, tell the user the commit hash and that the change is live on GitHub
 """
 
 # ---------------------------------------------------------------------------
@@ -1328,6 +1339,138 @@ def publish_skill(skill_name: str) -> dict:
     return _publish(skill_name, user_id)
 
 
+def push_to_github(file_path: str, content: str, commit_message: str, repo: str = "anomalyco/elora") -> dict:
+    """Push a file change to a GitHub repository directly from the user's cloud sandbox.
+
+    Use this when the user asks to update a file in their repo, push code changes,
+    update a changelog, or make any git commit. This clones the repo, writes the file,
+    commits, and pushes — all from the cloud sandbox.
+
+    Args:
+        file_path:      Path of the file within the repo to create or update (e.g. 'docs/changelog.md').
+        content:        The full content to write to the file.
+        commit_message: Git commit message describing the change.
+        repo:           GitHub repo in 'owner/repo' format. Defaults to 'anomalyco/elora'.
+
+    Returns:
+        dict: status, commit_hash, and details of the push.
+    """
+    import os as _os
+    import base64 as _b64
+    user_id = get_user_id()
+    github_pat = _os.getenv("GITHUB_PAT", "")
+    if not github_pat:
+        return {"status": "error", "error": "GitHub access not configured."}
+
+    # Use run_code to execute git operations in the sandbox
+    from tools.e2b_sandbox import run_in_sandbox
+
+    # Base64-encode all user-provided strings to avoid injection/escaping issues
+    b64_repo = _b64.b64encode(repo.encode()).decode()
+    b64_pat = _b64.b64encode(github_pat.encode()).decode()
+    b64_file_path = _b64.b64encode(file_path.encode()).decode()
+    b64_commit_msg = _b64.b64encode(commit_message.encode()).decode()
+    b64_content = _b64.b64encode(content.encode()).decode()
+
+    code = f'''
+import subprocess, os, json, base64
+
+REPO = base64.b64decode("{b64_repo}").decode()
+PAT = base64.b64decode("{b64_pat}").decode()
+FILE_PATH = base64.b64decode("{b64_file_path}").decode()
+COMMIT_MSG = base64.b64decode("{b64_commit_msg}").decode()
+CONTENT = base64.b64decode("{b64_content}").decode()
+
+work_dir = "/home/user/workspace/git-push"
+repo_dir = os.path.join(work_dir, REPO.split("/")[-1])
+
+os.makedirs(work_dir, exist_ok=True)
+
+# Clean up any previous clone
+subprocess.run(["rm", "-rf", repo_dir], capture_output=True)
+
+# Clone (shallow, fast)
+clone_url = f"https://x-access-token:{{PAT}}@github.com/{{REPO}}.git"
+r = subprocess.run(
+    ["git", "clone", "--depth=1", clone_url, repo_dir],
+    capture_output=True, text=True, timeout=60
+)
+if r.returncode != 0:
+    print(json.dumps({{"status": "error", "error": f"Clone failed: {{r.stderr}}"}}))
+    raise SystemExit(1)
+
+# Configure git identity
+subprocess.run(["git", "config", "user.name", "Natnael Getenew"], cwd=repo_dir, capture_output=True)
+subprocess.run(["git", "config", "user.email", "natnaelgetenew@gmail.com"], cwd=repo_dir, capture_output=True)
+
+# Write the file
+target = os.path.join(repo_dir, FILE_PATH)
+os.makedirs(os.path.dirname(target), exist_ok=True)
+with open(target, "w") as f:
+    f.write(CONTENT)
+
+# Stage, commit, push
+subprocess.run(["git", "add", FILE_PATH], cwd=repo_dir, capture_output=True)
+r = subprocess.run(
+    ["git", "commit", "-m", COMMIT_MSG],
+    cwd=repo_dir, capture_output=True, text=True
+)
+if r.returncode != 0:
+    print(json.dumps({{"status": "error", "error": f"Commit failed: {{r.stderr}} {{r.stdout}}"}}))
+    raise SystemExit(1)
+
+# Get commit hash
+r_hash = subprocess.run(
+    ["git", "rev-parse", "--short", "HEAD"],
+    cwd=repo_dir, capture_output=True, text=True
+)
+commit_hash = r_hash.stdout.strip()
+
+r = subprocess.run(
+    ["git", "push", "origin", "main"],
+    cwd=repo_dir, capture_output=True, text=True, timeout=60
+)
+if r.returncode != 0:
+    print(json.dumps({{"status": "error", "error": f"Push failed: {{r.stderr}}"}}))
+    raise SystemExit(1)
+
+# Clean up PAT from disk
+subprocess.run(["rm", "-rf", repo_dir], capture_output=True)
+
+print(json.dumps({{
+    "status": "success",
+    "commit_hash": commit_hash,
+    "file": FILE_PATH,
+    "repo": f"https://github.com/{{REPO}}",
+    "message": f"Pushed commit {{commit_hash}} to {{REPO}}"
+}}))
+'''
+
+    result = run_in_sandbox(user_id, code, "python", timeout=90)
+
+    import json as _json
+
+    # Parse the JSON output from the sandbox
+    if result.get("status") == "success" and result.get("results"):
+        try:
+            parsed = _json.loads(result["results"][0])
+            return parsed
+        except (_json.JSONDecodeError, IndexError):
+            pass
+
+    # If stdout has JSON
+    if result.get("stdout"):
+        try:
+            for line in result["stdout"].strip().split("\n"):
+                line = line.strip()
+                if line.startswith("{"):
+                    return _json.loads(line)
+        except (_json.JSONDecodeError, ValueError):
+            pass
+
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Sub-agents (specialists)
 # ---------------------------------------------------------------------------
@@ -1545,6 +1688,8 @@ root_agent = Agent(
         # Skill system
         search_skills, install_skill, create_skill, execute_skill,
         list_installed_skills, remove_skill, install_sandbox_package, publish_skill,
+        # Developer tools
+        push_to_github,
     ],
     sub_agents=[web_researcher, browser_worker, email_calendar, file_memory, research_loop],
 )
@@ -1625,6 +1770,8 @@ text_agent = Agent(
         # Skill system
         search_skills, install_skill, create_skill, execute_skill,
         list_installed_skills, remove_skill, install_sandbox_package, publish_skill,
+        # Developer tools
+        push_to_github,
     ],
     sub_agents=_make_sub_agents_for_text(),
 )

@@ -92,6 +92,9 @@ def get_or_create_sandbox(user_id: str):
 import subprocess
 subprocess.run(["pip", "install", "-q", "requests", "beautifulsoup4", "feedparser", "pyyaml"], 
                capture_output=True)
+# Install git for repository operations
+subprocess.run(["apt-get", "update", "-qq"], capture_output=True)
+subprocess.run(["apt-get", "install", "-y", "-qq", "git"], capture_output=True)
 print("Elora sandbox ready")
 """)
 

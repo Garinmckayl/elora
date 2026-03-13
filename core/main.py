@@ -392,6 +392,8 @@ from elora_agent.agent import (
     # Skill system
     search_skills, install_skill, create_skill, execute_skill,
     list_installed_skills, remove_skill, install_sandbox_package, publish_skill,
+    # Developer tools
+    push_to_github,
     SYSTEM_INSTRUCTION,
 )
 
@@ -454,6 +456,8 @@ TOOL_FUNCTIONS = {
     "remove_skill": remove_skill,
     "install_sandbox_package": install_sandbox_package,
     "publish_skill": publish_skill,
+    # Developer tools
+    "push_to_github": push_to_github,
 }
 
 # Function declarations for the Live API (schema derived from docstrings)
@@ -1018,6 +1022,36 @@ LIVE_TOOL_DECLARATIONS = [
                 },
             },
             "required": ["package"],
+        },
+    },
+    {
+        "name": "push_to_github",
+        "description": (
+            "Push a file change to a GitHub repository from the cloud sandbox. "
+            "Clones the repo, writes/updates the file, commits, and pushes. "
+            "Use when the user asks to update code, push changes, update changelog, or commit to their repo."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path of the file within the repo (e.g. 'docs/changelog.md').",
+                },
+                "content": {
+                    "type": "string",
+                    "description": "The full content to write to the file.",
+                },
+                "commit_message": {
+                    "type": "string",
+                    "description": "Git commit message describing the change.",
+                },
+                "repo": {
+                    "type": "string",
+                    "description": "GitHub repo in 'owner/repo' format. Defaults to 'anomalyco/elora'.",
+                },
+            },
+            "required": ["file_path", "content", "commit_message"],
         },
     },
 ]
