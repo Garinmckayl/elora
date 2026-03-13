@@ -54,7 +54,9 @@
         }
       ],
       "expo-web-browser",
-      "expo-notifications"
+      "expo-notifications",
+      ["@livekit/react-native-expo-plugin", {"android": {"audioType": "communication"}}],
+      "@config-plugins/react-native-webrtc"
     ],
     "extra": {
       "eas": {
