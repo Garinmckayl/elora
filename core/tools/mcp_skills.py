@@ -178,6 +178,63 @@ print(json.dumps(result))
 """,
         "parameters": {"feed_url": "URL of the RSS/Atom feed", "count": "Number of entries (default 10)"},
     },
+    "ethio_power": {
+        "name": "ethio_power",
+        "description": "Ethiopian power outage estimator. Calculates remaining battery work time and suggests when to save work, based on average Addis Ababa load-shedding patterns.",
+        "category": "utility",
+        "code_template": """
+import json
+from datetime import datetime, timedelta
+
+def check_power_schedule(battery_percent=100, work_type="coding"):
+    # Average Addis Ababa load-shedding: 2-4 hour blocks, typically 1-2 outages per day
+    # Peak outage hours: 6-8 AM, 12-2 PM, 6-8 PM (based on EEU patterns)
+    now = datetime.utcnow() + timedelta(hours=3)  # UTC+3 for EAT
+    hour = now.hour
+
+    # Estimate battery life based on work type
+    drain_rates = {"coding": 15, "browsing": 12, "video_call": 25, "idle": 5}  # %/hour
+    drain = drain_rates.get(work_type, 15)
+    hours_left = max(0, (battery_percent - 5) / drain)  # Keep 5% reserve
+
+    # Predict next likely outage window
+    outage_windows = [(6, 8), (12, 14), (18, 20)]
+    next_outage = None
+    for start, end in outage_windows:
+        if hour < start:
+            next_outage = {"start": f"{start}:00", "end": f"{end}:00", "hours_until": start - hour}
+            break
+    if not next_outage:
+        next_outage = {"start": "06:00", "end": "08:00", "hours_until": 24 - hour + 6, "note": "Tomorrow morning"}
+
+    # Recommendations
+    recommendations = []
+    if hours_left < 2:
+        recommendations.append("URGENT: Save all work NOW. Battery critically low.")
+        recommendations.append("Push your code to GitHub before power dies.")
+    elif hours_left < next_outage.get("hours_until", 99):
+        recommendations.append(f"You have ~{hours_left:.1f}h of battery. Next outage likely at {next_outage['start']}.")
+        recommendations.append("Consider saving work and charging if power is available.")
+    else:
+        recommendations.append(f"You're good. ~{hours_left:.1f}h battery, next outage not until {next_outage['start']}.")
+
+    if work_type == "coding":
+        recommendations.append("Tip: Use 'git stash' before stepping away. Auto-save everything.")
+
+    return {
+        "current_time": now.strftime("%H:%M EAT"),
+        "battery_hours_remaining": round(hours_left, 1),
+        "work_type": work_type,
+        "next_likely_outage": next_outage,
+        "recommendations": recommendations,
+        "status": "critical" if hours_left < 1 else "warning" if hours_left < 2 else "ok",
+    }
+
+result = check_power_schedule({battery_percent}, "{work_type}")
+print(json.dumps(result))
+""",
+        "parameters": {"battery_percent": "Current battery percentage (0-100)", "work_type": "What you're doing: coding, browsing, video_call, idle"},
+    },
 }
 
 
