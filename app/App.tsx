@@ -12,6 +12,8 @@ import {
   Modal,
   Animated,
   Image,
+  ScrollView as RNScrollView,
+  LogBox,
 } from "react-native";
 import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -43,6 +45,35 @@ import { colors as defaultColors, spacing, borderRadius, shadows as defaultShado
 import { WS_URL, BACKEND_URL } from "./src/config";
 
 // ---------------------------------------------------------------------------
+// Global crash catcher -- captures native/async errors that React error
+// boundary cannot catch and stores them so we can display on screen.
+// ---------------------------------------------------------------------------
+const _crashLogs: string[] = [];
+let _crashCallback: ((msg: string) => void) | null = null;
+
+function logCrash(msg: string) {
+  const entry = `[${new Date().toISOString().slice(11, 19)}] ${msg}`;
+  _crashLogs.push(entry);
+  if (_crashLogs.length > 50) _crashLogs.shift();
+  _crashCallback?.(entry);
+}
+
+// Catch unhandled JS errors
+const _origHandler = ErrorUtils.getGlobalHandler();
+ErrorUtils.setGlobalHandler((error: any, isFatal?: boolean) => {
+  logCrash(`${isFatal ? "FATAL" : "ERROR"}: ${error?.message || error}\n${error?.stack?.slice(0, 500) || ""}`);
+  if (_origHandler) _origHandler(error, isFatal);
+});
+
+// Catch unhandled promise rejections
+const _origRejection = (global as any).onunhandledrejection;
+(global as any).onunhandledrejection = (e: any) => {
+  const reason = e?.reason || e;
+  logCrash(`PROMISE: ${reason?.message || reason}\n${reason?.stack?.slice(0, 500) || ""}`);
+  if (_origRejection) _origRejection(e);
+};
+
+// ---------------------------------------------------------------------------
 // Error Boundary -- prevents total app crash, shows recovery UI
 // ---------------------------------------------------------------------------
 interface ErrorBoundaryState {
@@ -61,19 +92,26 @@ class AppErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[ErrorBoundary] Caught:", error, info.componentStack);
+    logCrash(`BOUNDARY: ${error?.message}\n${info.componentStack?.slice(0, 800) || ""}`);
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <View style={{ flex: 1, backgroundColor: "#1A1816", alignItems: "center", justifyContent: "center", padding: 32 }}>
-          <Text style={{ color: "#E8A96D", fontSize: 22, fontWeight: "700", marginBottom: 12 }}>
-            Something went wrong
+        <View style={{ flex: 1, backgroundColor: "#1A0000", padding: 20, paddingTop: 60 }}>
+          <Text style={{ color: "#FF4444", fontSize: 20, fontWeight: "700", marginBottom: 8 }}>
+            CRASH LOG
           </Text>
-          <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 14, textAlign: "center", marginBottom: 24 }}>
-            {this.state.error?.message || "An unexpected error occurred."}
+          <Text style={{ color: "#FF8888", fontSize: 13, marginBottom: 12 }}>
+            {this.state.error?.message || "Unknown error"}
           </Text>
+          <RNScrollView style={{ flex: 1, backgroundColor: "#000", borderRadius: 8, padding: 10, marginBottom: 16 }}>
+            <Text selectable style={{ color: "#00FF00", fontSize: 11, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" }}>
+              {this.state.error?.stack || "No stack trace"}
+              {"\n\n--- GLOBAL CRASH LOG ---\n"}
+              {_crashLogs.join("\n")}
+            </Text>
+          </RNScrollView>
           <TouchableOpacity
             onPress={() => {
               this.setState({ hasError: false, error: null });
@@ -84,6 +122,7 @@ class AppErrorBoundary extends Component<
               paddingHorizontal: 28,
               paddingVertical: 14,
               borderRadius: 999,
+              alignSelf: "center",
             }}
           >
             <Text style={{ color: "#1A1816", fontSize: 16, fontWeight: "700" }}>Go Home</Text>
@@ -184,12 +223,78 @@ function uid(prefix = "m"): string {
 
 export default function App() {
   const [resetKey, setResetKey] = useState(0);
+  const [crashLog, setCrashLog] = useState<string[]>([]);
+  const [showDebug, setShowDebug] = useState(false);
+
+  // Register for global crash notifications
+  useEffect(() => {
+    _crashCallback = (msg) => {
+      setCrashLog((prev) => [...prev.slice(-30), msg]);
+      setShowDebug(true);
+    };
+    // Load any crashes that happened before this mounted
+    if (_crashLogs.length > 0) {
+      setCrashLog([..._crashLogs]);
+      setShowDebug(true);
+    }
+    return () => { _crashCallback = null; };
+  }, []);
+
   return (
-    <AppErrorBoundary onReset={() => setResetKey((k) => k + 1)}>
-      <ThemeProvider>
-        <AppInner key={resetKey} onFatalReset={() => setResetKey((k) => k + 1)} />
-      </ThemeProvider>
-    </AppErrorBoundary>
+    <View style={{ flex: 1 }}>
+      <AppErrorBoundary onReset={() => setResetKey((k) => k + 1)}>
+        <ThemeProvider>
+          <AppInner key={resetKey} onFatalReset={() => setResetKey((k) => k + 1)} />
+        </ThemeProvider>
+      </AppErrorBoundary>
+      {/* Floating debug button -- always visible */}
+      <TouchableOpacity
+        onPress={() => setShowDebug((v) => !v)}
+        style={{
+          position: "absolute",
+          top: 50,
+          right: 10,
+          backgroundColor: crashLog.length > 0 ? "#FF0000" : "#333",
+          width: 32,
+          height: 32,
+          borderRadius: 16,
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999,
+          opacity: 0.8,
+        }}
+      >
+        <Text style={{ color: "#FFF", fontSize: 12, fontWeight: "700" }}>
+          {crashLog.length > 0 ? "!" : "D"}
+        </Text>
+      </TouchableOpacity>
+      {/* Debug overlay */}
+      {showDebug && crashLog.length > 0 && (
+        <View style={{
+          position: "absolute",
+          top: 90,
+          left: 10,
+          right: 10,
+          bottom: 100,
+          backgroundColor: "rgba(0,0,0,0.95)",
+          borderRadius: 12,
+          padding: 12,
+          zIndex: 9998,
+        }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+            <Text style={{ color: "#FF4444", fontSize: 16, fontWeight: "700" }}>Crash Log ({crashLog.length})</Text>
+            <TouchableOpacity onPress={() => setShowDebug(false)}>
+              <Text style={{ color: "#888", fontSize: 14 }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+          <RNScrollView style={{ flex: 1 }}>
+            <Text selectable style={{ color: "#00FF00", fontSize: 10, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" }}>
+              {crashLog.join("\n\n")}
+            </Text>
+          </RNScrollView>
+        </View>
+      )}
+    </View>
   );
 }
 
