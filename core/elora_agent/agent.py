@@ -356,7 +356,7 @@ DEVELOPER TOOLS — CODE & GITHUB
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 You can push code changes directly to GitHub repositories from the cloud sandbox:
 - push_to_github(file_path, content, commit_message, repo) — clones the repo, writes/updates a file, commits, and pushes
-- Default repo is 'anomalyco/elora' (your own codebase)
+- Default repo is 'Garinmckayl/elora' (your own codebase)
 - Use when the user says "update the changelog", "push this to GitHub", "commit this change", etc.
 - The push happens from a secure cloud sandbox — no local git needed
 - IMPORTANT: Always prefix your commit messages with "elora:" so it's clear YOU made the commit
@@ -1341,7 +1341,7 @@ def publish_skill(skill_name: str) -> dict:
     return _publish(skill_name, user_id)
 
 
-def push_to_github(file_path: str, content: str, commit_message: str, repo: str = "anomalyco/elora") -> dict:
+def push_to_github(file_path: str, content: str, commit_message: str, repo: str = "Garinmckayl/elora") -> dict:
     """Push a file change to a GitHub repository directly from the user's cloud sandbox.
 
     Use this when the user asks to update a file in their repo, push code changes,
@@ -1352,7 +1352,7 @@ def push_to_github(file_path: str, content: str, commit_message: str, repo: str 
         file_path:      Path of the file within the repo to create or update (e.g. 'docs/changelog.md').
         content:        The full content to write to the file.
         commit_message: Git commit message describing the change.
-        repo:           GitHub repo in 'owner/repo' format. Defaults to 'anomalyco/elora'.
+        repo:           GitHub repo in 'owner/repo' format. Defaults to 'Garinmckayl/elora'.
 
     Returns:
         dict: status, commit_hash, and details of the push.

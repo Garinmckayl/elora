@@ -1048,7 +1048,7 @@ LIVE_TOOL_DECLARATIONS = [
                 },
                 "repo": {
                     "type": "string",
-                    "description": "GitHub repo in 'owner/repo' format. Defaults to 'anomalyco/elora'.",
+                    "description": "GitHub repo in 'owner/repo' format. Defaults to 'Garinmckayl/elora'.",
                 },
             },
             "required": ["file_path", "content", "commit_message"],
