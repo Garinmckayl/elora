@@ -144,8 +144,8 @@ export function usePhotoLibrary(): UsePhotoLibraryReturn {
   const getPhotoBase64 = useCallback(
     async (uri: string): Promise<string | null> => {
       try {
-        const FileSystem = await import("expo-file-system");
-        const base64 = await FileSystem.default.readAsStringAsync(uri, {
+        const FileSystem = await import("expo-file-system/legacy");
+        const base64 = await FileSystem.readAsStringAsync(uri, {
           encoding: FileSystem.EncodingType.Base64,
         });
         return base64;

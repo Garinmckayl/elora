@@ -934,7 +934,7 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
 
       {/* Hidden CameraView for one-shot snaps when user says "this is [name]" (non-call mode)
           During calls, LiveCallScreen manages the camera directly */}
-      {!inCall && (
+      {!inCall && cameraPermission?.granted && (
         <CameraView
           ref={liveCameraRef}
           style={{ width: 1, height: 1, opacity: 0, position: "absolute" }}

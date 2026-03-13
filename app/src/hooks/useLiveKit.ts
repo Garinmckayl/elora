@@ -7,13 +7,22 @@
  */
 
 import { useRef, useState, useCallback, useEffect } from "react";
-import {
-  Room,
-  RoomEvent,
-  Track,
-  ConnectionState,
-} from "livekit-client";
 import { BACKEND_URL } from "../config";
+
+// Lazy-load livekit-client to avoid crash if native WebRTC module is missing
+let Room: any = null;
+let RoomEvent: any = null;
+let Track: any = null;
+let ConnectionState: any = null;
+try {
+  const lk = require("livekit-client");
+  Room = lk.Room;
+  RoomEvent = lk.RoomEvent;
+  Track = lk.Track;
+  ConnectionState = lk.ConnectionState;
+} catch (e) {
+  console.warn("[LiveKit] livekit-client not available:", e);
+}
 
 // AudioSession -- shimmed to no-ops in Expo Go via metro.config.js
 let _AudioSession: any = null;

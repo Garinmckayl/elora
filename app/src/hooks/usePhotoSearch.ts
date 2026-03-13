@@ -16,7 +16,7 @@
 import { useState, useCallback, useRef } from "react";
 import * as MediaLibrary from "expo-media-library";
 import * as ImageManipulator from "expo-image-manipulator";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { BACKEND_URL } from "../config";
 
 export interface PhotoSearchResult {

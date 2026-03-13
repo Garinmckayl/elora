@@ -29,7 +29,7 @@
   <rect width="1200" height="900" fill="#FAFAF8" rx="8"/>
 
   <!-- Title -->
-  <text x="600" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#2D2D2D">Elora — System Architecture</text>
+  <text x="600" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#2D2D2D">Elora - System Architecture</text>
   <text x="600" y="58" text-anchor="middle" font-size="13" fill="#9E9E9E">Your Personal AGI, In Your Pocket</text>
 
   <!-- ═══════════ MOBILE APP LAYER ═══════════ -->
@@ -234,7 +234,7 @@
   <text x="828" y="610" font-size="10" font-weight="600" fill="#2D2D2D">Hackathon: Gemini Live Agent Challenge</text>
   <text x="828" y="626" font-size="9" fill="#6B6B6B">Category: Live Agents | Google ADK + GenAI SDK</text>
   <text x="828" y="642" font-size="9" fill="#6B6B6B">Backend: Cloud Run | Frontend: Expo / React Native</text>
-  <text x="828" y="658" font-size="9" fill="#9E9E9E">github.com/Garinmckayl/elora | Doctus AI, 2026</text>
+  <text x="828" y="658" font-size="9" fill="#9E9E9E">github.com/Garinmckayl/elora</text>
 
   <!-- ═══════════ KEY FLOW LABELS ═══════════ -->
   <text x="420" y="328" text-anchor="middle" font-size="9" font-weight="600" fill="#4A90D9">WebSocket / WebRTC / REST</text>

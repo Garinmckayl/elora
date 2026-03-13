@@ -6,11 +6,26 @@
  */
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Animated } from "react-native";
-import { Audio } from "expo-av";
-import { File, Paths } from "expo-file-system/next";
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { borderRadius, useTheme, type ThemeColors } from "../theme";
+
+// Lazy-load native modules to avoid crash if unavailable
+let Audio: any = null;
+let FSFile: any = null;
+let FSPaths: any = null;
+try {
+  Audio = require("expo-av").Audio;
+} catch (e) {
+  console.warn("[AudioPlayer] expo-av not available:", e);
+}
+try {
+  const fs = require("expo-file-system/next");
+  FSFile = fs.File;
+  FSPaths = fs.Paths;
+} catch (e) {
+  console.warn("[AudioPlayer] expo-file-system/next not available:", e);
+}
 
 interface AudioPlayerProps {
   audioBase64: string;
@@ -28,8 +43,8 @@ export default function AudioPlayer({ audioBase64, mimeType = "audio/wav", capti
   const [position, setPosition] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
-  const fileRef = useRef<File | null>(null);
+  const soundRef = useRef<any>(null);
+  const fileRef = useRef<any>(null);
   const progressAnim = useRef(new Animated.Value(0)).current;
 
   // Cleanup on unmount
@@ -41,6 +56,10 @@ export default function AudioPlayer({ audioBase64, mimeType = "audio/wav", capti
   }, []);
 
   const loadAndPlay = async () => {
+    if (!Audio || !FSFile || !FSPaths) {
+      setError("Audio playback not available");
+      return;
+    }
     try {
       setIsLoading(true);
       setError(null);
@@ -64,7 +83,7 @@ export default function AudioPlayer({ audioBase64, mimeType = "audio/wav", capti
       // Write base64 to a temp file (data URIs break on Android for large audio)
       const ext = mimeType.includes("wav") ? "wav" : mimeType.includes("mp4") ? "m4a" : "mp3";
       _fileCounter += 1;
-      const file = new File(Paths.cache, `elora_audio_${_fileCounter}.${ext}`);
+      const file = new FSFile(FSPaths.cache, `elora_audio_${_fileCounter}.${ext}`);
       // Decode base64 to bytes and write
       const binaryStr = atob(audioBase64);
       const bytes = new Uint8Array(binaryStr.length);
@@ -85,7 +104,7 @@ export default function AudioPlayer({ audioBase64, mimeType = "audio/wav", capti
       const { sound } = await Audio.Sound.createAsync(
         { uri: file.uri },
         { shouldPlay: true },
-        (status) => {
+        (status: any) => {
           if (status.isLoaded) {
             setPosition(status.positionMillis);
             setDuration(status.durationMillis || 0);

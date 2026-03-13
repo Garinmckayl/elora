@@ -11,20 +11,26 @@
  */
 
 import { useEffect } from "react";
-import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { BACKEND_URL } from "../config";
 
-// Configure how notifications are shown while app is foregrounded
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// Lazy-load expo-notifications to avoid crash if native module is missing
+let Notifications: any = null;
+try {
+  Notifications = require("expo-notifications");
+  // Configure how notifications are shown while app is foregrounded
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+} catch (e) {
+  console.warn("[Push] expo-notifications not available:", e);
+}
 
 interface UseExpoPushOptions {
   userId?: string;
@@ -37,7 +43,7 @@ interface UseExpoPushOptions {
 export function useExpoPush({ userId, token, enabled = true, onNotificationTap }: UseExpoPushOptions) {
   // Register token with backend
   useEffect(() => {
-    if (!enabled || !userId || userId === "anonymous") return;
+    if (!Notifications || !enabled || !userId || userId === "anonymous") return;
 
     let cancelled = false;
 
@@ -96,17 +102,17 @@ export function useExpoPush({ userId, token, enabled = true, onNotificationTap }
 
   // Handle notification taps (works both when app is in foreground and when launched from background)
   useEffect(() => {
-    if (!onNotificationTap) return;
+    if (!Notifications || !onNotificationTap) return;
 
     // Fired when user taps a notification while app is running
-    const tapSub = Notifications.addNotificationResponseReceivedListener((response) => {
+    const tapSub = Notifications.addNotificationResponseReceivedListener((response: any) => {
       const data = (response.notification.request.content.data ?? {}) as Record<string, any>;
       console.log("[Push] Notification tapped:", data);
       onNotificationTap(data);
     });
 
     // Also check if the app was launched from a notification tap
-    Notifications.getLastNotificationResponseAsync().then((response) => {
+    Notifications.getLastNotificationResponseAsync().then((response: any) => {
       if (response) {
         const data = (response.notification.request.content.data ?? {}) as Record<string, any>;
         console.log("[Push] App launched from notification:", data);

@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef, useCallback, useState } from "react";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { WAKE_WS_URL, wsUrl } from "../config";
 
 interface UseWakeWordOptions {

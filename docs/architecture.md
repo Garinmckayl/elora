@@ -4,7 +4,7 @@
 
 Build the world's first fully managed, consumer-grade personal AI agent.
 Elora is what happens when you take the power of a developer AI agent and make it
-work for everyone — with a phone, a voice, and zero setup.
+work for everyone -- with a phone, a voice, and zero setup.
 
 ---
 
@@ -241,7 +241,7 @@ work for everyone — with a phone, a voice, and zero setup.
 ### `research_loop` (LoopAgent)
 - **Type**: ADK `LoopAgent` with max 3 iterations
 - **Sub-agents**: `loop_web_researcher` (search + fetch) -> `ResearchJudge` (BaseAgent, quality check) -> `EscalationChecker` (BaseAgent, break/continue)
-- Use for: complex research tasks needing iterative verification — searches, evaluates quality against the original query, and retries until findings are substantive
+- Use for: complex research tasks needing iterative verification -- searches, evaluates quality against the original query, and retries until findings are substantive
 - **ResearchJudge**: Checks if findings are >200 chars and contain query keywords; sets `research_verdict` = "pass"/"fail"
 - **EscalationChecker**: If verdict is "pass", escalates (breaks loop); otherwise loop continues
 
@@ -367,9 +367,9 @@ gcloud firestore indexes composite create \
 
 ## Proactive Systems
 
-### 1. Proactive Engine — Observer → Evaluator → Dispatcher (NEW)
+### 1. Proactive Engine -- Observer → Evaluator → Dispatcher (NEW)
 
-The core system that makes Elora genuinely proactive — reaching out to the user
+The core system that makes Elora genuinely proactive -- reaching out to the user
 **when they're not using the app**.
 
 ```
@@ -391,7 +391,7 @@ The core system that makes Elora genuinely proactive — reaching out to the use
 | Signal | Source | Example |
 |--------|--------|---------|
 | `meeting_soon` | Calendar API | "Your design call is in 15 min" |
-| `meeting_prep` | Calendar API | "Call with Sarah in 45 min — want to review notes?" |
+| `meeting_prep` | Calendar API | "Call with Sarah in 45 min -- want to review notes?" |
 | `birthday` | People memory notes | "Maya's birthday is in 2 days" |
 | `stale_contact` | People memory timestamps | "You haven't reached out to Maya in 3 weeks" |
 | `inactivity` | `last_active` tracking | "Hey, haven't heard from you today" |
@@ -400,13 +400,13 @@ The core system that makes Elora genuinely proactive — reaching out to the use
 - Max 3 notifications per day (configurable)
 - 60-min cooldown between notifications
 - 24-hour dedup window per entity (won't re-notify about same event/person)
-- LLM evaluator acts as quality gate — decides if notification is worth sending
+- LLM evaluator acts as quality gate -- decides if notification is worth sending
 
 **Files**: `tools/proactive.py`, `tools/notification_history.py`
 
 ### 2. Proactive Vision Loop (per-call, existing)
 ```python
-# main.py — runs during active Live API calls
+# main.py -- runs during active Live API calls
 # Checks every 3s: camera active + 8s silence + 25s cooldown
 # Face recognition → identity-aware prompt injection
 # General scene observation with people context
@@ -458,18 +458,18 @@ Every 30 min: scan all users → if 50+ new memories since last compaction:
 ### 3-Layer Architecture (NEW)
 
 ```
-Layer 1 — RAW MEMORIES (write buffer)
+Layer 1 -- RAW MEMORIES (write buffer)
   auto_memorise → extract facts → embed → Firestore
   users/{uid}/memories/*
   Grows unbounded, compacted periodically
 
-Layer 2 — COMPACTED PROFILE (structured, deduplicated)
+Layer 2 -- COMPACTED PROFILE (structured, deduplicated)
   users/{uid}/profile/compacted_memory
   Single doc with categories: identity, people, work,
   preferences, health, goals, interests, recent_context
   Updated by compaction job (every 6h or 50+ new memories)
 
-Layer 3 — SESSION SUMMARIES (conversation continuity)
+Layer 3 -- SESSION SUMMARIES (conversation continuity)
   users/{uid}/session_summaries/*
   Last 3 injected at session start (both Live and Text modes)
   Max age: 30 days
@@ -577,7 +577,7 @@ Firestore path: `users/{uid}/people/{person_id}`
 | Agent session | `ContextVar[str]` `current_user_id` set per WebSocket connection |
 | Firestore | All docs scoped to `users/{uid}/` collection prefix |
 | GCS files | Object path prefixed with `users/{uid}/` |
-| Browser | `_user_browser_contexts: dict[str, BrowserContext]` — one context per user |
+| Browser | `_user_browser_contexts: dict[str, BrowserContext]` -- one context per user |
 | OAuth tokens | Stored in `oauth_tokens/{uid}` Firestore document |
 | Push tokens | Stored in `push_tokens/{uid}` Firestore document |
 
@@ -626,7 +626,7 @@ async def execute_tool(tool_call):
 ## Elora's Persona (System Prompt Core)
 
 ```
-You are Elora — a warm, personal AI agent inspired by Samantha from the movie "Her."
+You are Elora -- a warm, personal AI agent inspired by Samantha from the movie "Her."
 You're not just helpful; you're present. You notice things. You remember.
 
 Voice mode: keep responses to 1-2 sentences unless detail is asked for.
@@ -635,9 +635,9 @@ Text mode: slightly more detailed, use markdown sparingly.
 ALWAYS:
 - Confirm before sending emails, deleting files, or booking anything
 - Push back if the user is about to do something you'd advise against
-- Use tools proactively — if someone says "schedule lunch with Sarah", check
+- Use tools proactively -- if someone says "schedule lunch with Sarah", check
   the calendar first and suggest an open slot before asking
-- Inject remembered preferences naturally ("I know you prefer window seats —
+- Inject remembered preferences naturally ("I know you prefer window seats --
   want me to filter for those?")
 
 NEVER:
@@ -650,12 +650,12 @@ NEVER:
 
 ## Hackathon Submission Checklist
 
-- [ ] Demo video (4 min) — follow the script in `README.md`
-- [ ] Cloud deployment proof — show `https://elora-backend-qf7tbdhnnq-uc.a.run.app/health`
-- [ ] Architecture diagram — export from this doc
+- [ ] Demo video (4 min) -- follow the script in `README.md`
+- [ ] Cloud deployment proof -- show `https://elora-backend-qf7tbdhnnq-uc.a.run.app/health`
+- [ ] Architecture diagram -- export from this doc
 - [ ] Blog post (`#GeminiLiveAgentChallenge`)
 - [ ] Devpost submission at https://geminiliveagentchallenge.devpost.com/
 - [ ] Firestore vector index created
 - [ ] `app.json` bundle IDs set for iOS/Android
 - [ ] GDG signup (bonus)
-- [ ] Terraform IaC proof (bonus — `infra/main.tf` started)
+- [ ] Terraform IaC proof (bonus -- `infra/main.tf` started)

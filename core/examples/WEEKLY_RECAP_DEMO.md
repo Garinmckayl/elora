@@ -83,9 +83,9 @@ The weekly recap feature is called via:
 
 ## Demo Script for Judges
 
-> "Elora doesn't just remember your week — she celebrates it.
+> "Elora doesn't just remember your week -- she celebrates it.
 > With a single command, she creates a multimedia recap:
 > A custom theme song composed by Lyria 3,
 > A beautiful photo montage from Imagen 3,
 > And her own voice narrating your highlights.
-> This isn't just AI — this is your personal storyteller."
+> This isn't just AI -- this is your personal storyteller."

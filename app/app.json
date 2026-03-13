@@ -53,7 +53,8 @@
           "cameraPermission": "Elora needs camera access so she can see what you're looking at."
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-notifications"
     ],
     "extra": {
       "eas": {
