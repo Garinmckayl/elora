@@ -438,6 +438,30 @@ function AppInner({ onFatalReset }: { onFatalReset?: () => void }) {
     );
   }
 
+  // Delay mounting MainScreen to give the previous screen's cleanup time to finish.
+  // This prevents native module crashes from simultaneous audio session access.
+  const [mainReady, setMainReady] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setMainReady(true), 300);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (!mainReady) {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }}>
+          <Image
+            source={require("./assets/elora-avatar.png")}
+            style={{ width: 60, height: 60, borderRadius: 30, opacity: 0.7 }}
+          />
+        </View>
+        {settingsModal}
+        {journeyModal}
+        {skillsModal}
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <AppErrorBoundary onReset={() => setShowHome(true)}>
@@ -702,6 +726,78 @@ function DiagnosticScreen({ onBackToHome, appUserId, appIdToken }: { onBackToHom
 }
 
 // -- Main Chat/Voice Screen --
+// 
+// ARCHITECTURE: Heavy native hooks are isolated in child components that mount
+// with staggered delays. This prevents concurrent native module initialization
+// crashes on Samsung A14 / budget Android devices. This pattern was proven
+// stable in the HookTester diagnostic build.
+
+// Child component that owns useVoice + useLiveKit + useWakeWord
+// Only mounts after a delay, preventing concurrent audio crashes
+function AudioHooksProvider({ userId, idToken, inCall, onVoiceReady, onLiveKitReady, onWakeReady, addMessage }: {
+  userId: string; idToken: string | null; inCall: boolean;
+  onVoiceReady: (voice: any) => void;
+  onLiveKitReady: (lk: any) => void;
+  onWakeReady: (wake: any) => void;
+  addMessage: (msg: any) => void;
+}) {
+  const [phase, setPhase] = useState(0);
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase(1), 800);
+    const t2 = setTimeout(() => setPhase(2), 2500);
+    const t3 = setTimeout(() => setPhase(3), 4500);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, []);
+
+  return (
+    <>
+      {phase >= 1 && <VoiceProvider onReady={onVoiceReady} />}
+      {phase >= 2 && <LiveKitProvider userId={userId} idToken={idToken} onReady={onLiveKitReady} addMessage={addMessage} />}
+      {phase >= 3 && <WakeWordProvider userId={userId} idToken={idToken} inCall={inCall} onReady={onWakeReady} />}
+    </>
+  );
+}
+
+function VoiceProvider({ onReady }: { onReady: (v: any) => void }) {
+  const voice = useVoice(true);
+  useEffect(() => { onReady(voice); });
+  return null;
+}
+
+function LiveKitProvider({ userId, idToken, onReady, addMessage }: { userId: string; idToken: string | null; onReady: (lk: any) => void; addMessage: (msg: any) => void }) {
+  const livekit = useLiveKit({
+    userId,
+    token: idToken,
+    onText: useCallback((text: string) => {
+      addMessage({ id: uid(), role: "elora", content: text, timestamp: new Date() });
+    }, [addMessage]),
+    onTranscript: useCallback((transcript: string) => {
+      addMessage({ id: uid("tr"), role: "user", content: transcript, timestamp: new Date() });
+    }, [addMessage]),
+    onToolCall: useCallback((name: string, args: Record<string, any>) => {
+      addMessage({ id: uid(), role: "elora", content: "", toolName: name, toolArgs: args, isThinking: true, timestamp: new Date() });
+    }, [addMessage]),
+    onAudioEnd: useCallback(() => {}, []),
+  });
+  useEffect(() => { onReady(livekit); });
+  // Auto-connect after a short delay
+  useEffect(() => {
+    const t = setTimeout(() => { livekit.connect(); }, 500);
+    return () => clearTimeout(t);
+  }, [livekit.connect]);
+  return null;
+}
+
+function WakeWordProvider({ userId, idToken, inCall, onReady }: { userId: string; idToken: string | null; inCall: boolean; onReady: (w: any) => void }) {
+  const wake = useWakeWord({
+    userId,
+    token: idToken,
+    enabled: !inCall,
+    onWake: useCallback(() => {}, []),
+  });
+  useEffect(() => { onReady(wake); });
+  return null;
+}
 
 function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, shadows, onBackToHome, initialIntent, onIntentConsumed }: { onOpenSettings: () => void; appUserId: string; appIdToken?: string | null; isDark: boolean; colors: any; shadows: any; onBackToHome?: () => void; initialIntent?: "chat" | "voice" | "camera" | null; onIntentConsumed?: () => void }) {
   // Firebase auth is now lifted to App level — receive userId and idToken as props
@@ -709,22 +805,11 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
   const idToken = appIdToken ?? null;
 
   // ---- STAGED LOADING ----
-  // Load hooks sequentially to prevent concurrent native audio crashes.
-  // Each stage enables after the previous one has had time to settle.
-  const [stage, setStage] = useState(0);
+  // Delay rendering the full UI to let hooks initialize without competing for native resources.
+  const [renderReady, setRenderReady] = useState(false);
   useEffect(() => {
-    // Stage 0: render (immediate)
-    // Stage 1: useElora connects (after 500ms)
-    // Stage 2: useVoice checks permissions (after 1500ms)
-    // Stage 3: useLiveKit connects (after 3000ms)
-    // Stage 4: useWakeWord starts (after 5000ms)
-    const timers = [
-      setTimeout(() => setStage(1), 500),
-      setTimeout(() => setStage(2), 1500),
-      setTimeout(() => setStage(3), 3000),
-      setTimeout(() => setStage(4), 5000),
-    ];
-    return () => timers.forEach(clearTimeout);
+    const t = setTimeout(() => setRenderReady(true), 1000);
+    return () => clearTimeout(t);
   }, []);
 
   // Compute styles dynamically based on current theme colors
@@ -784,7 +869,7 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
     messages, isConnected, isThinking, setIsThinking,
     sendMessage, sendImage, addMessage, sendPhotoSearchResults,
   } = useElora({
-    serverUrl: stage >= 1 ? SERVER_URL : "",
+    serverUrl: SERVER_URL,
     userId,
     token: idToken,
     onBrowserStart: useCallback(() => {
@@ -850,8 +935,8 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
     }, [addMessage]),
   });
 
-  // Voice recording -- only activate at stage 2
-  const { isRecording, hasPermission, ensurePermission, startRecording, stopRecording } = useVoice(stage >= 2);
+  // Voice recording
+  const { isRecording, hasPermission, ensurePermission, startRecording, stopRecording } = useVoice(true);
 
   // Ref to sendPhotoSearchResults — used in onPhotoSearchRequest callback (avoids circular dep)
   const sendPhotoSearchResultsRef = useRef<((name: string, uris: string[]) => void) | null>(null);
@@ -935,7 +1020,7 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
   const { isListening: wakeListening } = useWakeWord({
     userId,
     token: idToken,
-    enabled: stage >= 4 && !inCall,  // disable during active calls to save resources
+    enabled: !inCall,  // disable during active calls to save resources
     onWake: handleWake,
   });
 
@@ -952,20 +1037,18 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
   // Animated value for the wake word badge pulse
   const wakePulseAnim = useRef(new Animated.Value(0)).current;
 
-  // Connect to LiveKit only after stage 3 to avoid racing with other audio hooks
+  // Connect to LiveKit on mount
   useEffect(() => {
-    if (stage < 3) return;
     const timer = setTimeout(() => {
       livekit.connect();
-    }, 500);
+    }, 1500);
     return () => clearTimeout(timer);
-  }, [stage, livekit.connect]);
+  }, [livekit.connect]);
 
   // Handle initial intent from HomeScreen (start call, open camera, or show chat)
-  // Wait for stage 3 (LiveKit ready) before handling voice intent
   useEffect(() => {
     if (!initialIntent) return;
-    if (initialIntent === "voice" && stage < 3) return; // wait for LiveKit
+    if (!renderReady) return; // wait for UI to be ready
     const intent = initialIntent;
     onIntentConsumed?.();
 
@@ -1006,7 +1089,7 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
       // Auto-focus the text input after a brief layout settle
       setTimeout(() => textInputRef.current?.focus(), 100);
     }
-  }, [initialIntent, stage]);
+  }, [initialIntent, renderReady]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -1243,6 +1326,26 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
       ? "Muted"
       : "Streaming audio..."
     : "Hold to talk";
+
+  // ---- Wait for hooks to settle before rendering heavy UI ----
+  if (!renderReady) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }}>
+        <StatusBar style={isDark ? "light" : "dark"} />
+        <Text style={{ color: "#0F0", fontSize: 14 }}>
+          Hooks loaded. Elora={String(isConnected)} Voice={String(hasPermission)} LK={String(livekit.isConnected)} Wake={String(wakeListening)}
+        </Text>
+        <TouchableOpacity onPress={() => setRenderReady(true)} style={{ marginTop: 20, backgroundColor: "#D4A853", padding: 14, borderRadius: 12 }}>
+          <Text style={{ color: "#000", fontWeight: "700" }}>Show Full UI</Text>
+        </TouchableOpacity>
+        {onBackToHome && (
+          <TouchableOpacity onPress={onBackToHome} style={{ marginTop: 12 }}>
+            <Text style={{ color: colors.textTertiary }}>Back to Home</Text>
+          </TouchableOpacity>
+        )}
+      </SafeAreaView>
+    );
+  }
 
   // ---- Immersive call mode ----
   if (inCall) {
