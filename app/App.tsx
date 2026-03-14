@@ -441,17 +441,11 @@ function AppInner({ onFatalReset }: { onFatalReset?: () => void }) {
   return (
     <SafeAreaProvider>
       <AppErrorBoundary onReset={() => setShowHome(true)}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#000" }}>
-          <Text style={{ color: "#0F0", fontSize: 24, padding: 40, paddingTop: 80 }}>
-            If you can see this, the transition works.
-          </Text>
-          <Text style={{ color: "#FF0", fontSize: 14, padding: 40 }}>
-            The crash is inside MainScreen hooks/components.
-          </Text>
-          <TouchableOpacity onPress={() => setShowHome(true)} style={{ backgroundColor: "#333", margin: 40, padding: 16, borderRadius: 12, alignItems: "center" }}>
-            <Text style={{ color: "#FFF", fontSize: 16 }}>Go Back Home</Text>
-          </TouchableOpacity>
-        </SafeAreaView>
+        <HookTester 
+          onBackToHome={() => setShowHome(true)}
+          appUserId={userId}
+          appIdToken={idToken}
+        />
       </AppErrorBoundary>
       {settingsModal}
       {journeyModal}
@@ -461,7 +455,121 @@ function AppInner({ onFatalReset }: { onFatalReset?: () => void }) {
 }
 
 // ---------------------------------------------------------------------------
-// DiagnosticScreen -- loads each hook one at a time to identify crash source
+// HookTester -- tap a button to load each hook individually
+// ---------------------------------------------------------------------------
+function TestElora({ userId, token }: { userId: string; token?: string | null }) {
+  const elora = useElora({
+    serverUrl: WS_URL,
+    userId,
+    token,
+    onBrowserStart: useCallback(() => {}, []),
+    onBrowserScreenshot: useCallback(() => {}, []),
+    onBrowserStep: useCallback(() => {}, []),
+    onPhotoSearchRequest: useCallback(() => {}, []),
+  });
+  return <Text style={{ color: "#0F0", fontSize: 13, fontFamily: "monospace" }}>useElora OK - connected={String(elora.isConnected)}</Text>;
+}
+
+function TestVoice() {
+  const voice = useVoice();
+  return <Text style={{ color: "#0F0", fontSize: 13, fontFamily: "monospace" }}>useVoice OK - hasPermission={String(voice.hasPermission)}</Text>;
+}
+
+function TestLiveKit({ userId, token }: { userId: string; token?: string | null }) {
+  const livekit = useLiveKit({
+    userId,
+    token,
+    onText: useCallback(() => {}, []),
+    onTranscript: useCallback(() => {}, []),
+    onToolCall: useCallback(() => {}, []),
+    onAudioEnd: useCallback(() => {}, []),
+  });
+  return <Text style={{ color: "#0F0", fontSize: 13, fontFamily: "monospace" }}>useLiveKit OK - connected={String(livekit.isConnected)}</Text>;
+}
+
+function TestLiveKitConnect({ userId, token }: { userId: string; token?: string | null }) {
+  const livekit = useLiveKit({
+    userId,
+    token,
+    onText: useCallback(() => {}, []),
+    onTranscript: useCallback(() => {}, []),
+    onToolCall: useCallback(() => {}, []),
+    onAudioEnd: useCallback(() => {}, []),
+  });
+  const [status, setStatus] = useState("connecting...");
+  useEffect(() => {
+    livekit.connect().then(() => setStatus("connected!")).catch((e: any) => setStatus("FAILED: " + (e?.message || e)));
+  }, []);
+  return <Text style={{ color: "#0F0", fontSize: 13, fontFamily: "monospace" }}>useLiveKit.connect() - {status}</Text>;
+}
+
+function TestWakeWord({ userId, token }: { userId: string; token?: string | null }) {
+  const wake = useWakeWord({
+    userId,
+    token,
+    enabled: true,
+    onWake: useCallback(() => {}, []),
+  });
+  return <Text style={{ color: "#0F0", fontSize: 13, fontFamily: "monospace" }}>useWakeWord OK - listening={String(wake.isListening)}</Text>;
+}
+
+function TestCamera() {
+  const [permission, requestPermission] = useCameraPermissions();
+  return <Text style={{ color: "#0F0", fontSize: 13, fontFamily: "monospace" }}>Camera OK - granted={String(permission?.granted)}</Text>;
+}
+
+function HookTester({ onBackToHome, appUserId, appIdToken }: { onBackToHome: () => void; appUserId: string; appIdToken?: string | null }) {
+  const [active, setActive] = useState<string | null>(null);
+
+  const tests: { name: string; component: React.ReactNode }[] = [
+    { name: "useElora (WebSocket)", component: <TestElora userId={appUserId} token={appIdToken} /> },
+    { name: "useVoice (Audio)", component: <TestVoice /> },
+    { name: "useLiveKit (init only)", component: <TestLiveKit userId={appUserId} token={appIdToken} /> },
+    { name: "useLiveKit + connect()", component: <TestLiveKitConnect userId={appUserId} token={appIdToken} /> },
+    { name: "useWakeWord", component: <TestWakeWord userId={appUserId} token={appIdToken} /> },
+    { name: "Camera Permission", component: <TestCamera /> },
+  ];
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#000" }}>
+      <View style={{ padding: 20, paddingTop: 10 }}>
+        <Text style={{ color: "#FF0", fontSize: 20, fontWeight: "700", marginBottom: 8 }}>Hook Tester</Text>
+        <Text style={{ color: "#888", fontSize: 12, marginBottom: 16 }}>Tap each button. If app crashes, that hook is the problem.</Text>
+        <TouchableOpacity onPress={onBackToHome} style={{ backgroundColor: "#333", padding: 10, borderRadius: 8, alignSelf: "flex-start", marginBottom: 16 }}>
+          <Text style={{ color: "#FFF", fontSize: 13 }}>Back to Home</Text>
+        </TouchableOpacity>
+      </View>
+      <RNScrollView style={{ flex: 1, paddingHorizontal: 20 }}>
+        {tests.map((test) => (
+          <View key={test.name} style={{ marginBottom: 12 }}>
+            <TouchableOpacity
+              onPress={() => setActive(active === test.name ? null : test.name)}
+              style={{
+                backgroundColor: active === test.name ? "#1a3a1a" : "#1a1a1a",
+                borderWidth: 1,
+                borderColor: active === test.name ? "#0F0" : "#333",
+                padding: 14,
+                borderRadius: 10,
+              }}
+            >
+              <Text style={{ color: active === test.name ? "#0F0" : "#FFF", fontSize: 15, fontWeight: "600" }}>
+                {active === test.name ? "LOADED: " : "TAP TO TEST: "}{test.name}
+              </Text>
+            </TouchableOpacity>
+            {active === test.name && (
+              <View style={{ padding: 10, backgroundColor: "#0a0a0a", borderRadius: 8, marginTop: 4 }}>
+                {test.component}
+              </View>
+            )}
+          </View>
+        ))}
+      </RNScrollView>
+    </SafeAreaView>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// DiagnosticScreen (unused, kept for reference)
 // ---------------------------------------------------------------------------
 function DiagnosticScreen({ onBackToHome, appUserId, appIdToken }: { onBackToHome: () => void; appUserId: string; appIdToken?: string | null }) {
   const [step, setStep] = useState(0);
