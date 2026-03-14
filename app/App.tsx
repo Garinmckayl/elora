@@ -441,11 +441,17 @@ function AppInner({ onFatalReset }: { onFatalReset?: () => void }) {
   return (
     <SafeAreaProvider>
       <AppErrorBoundary onReset={() => setShowHome(true)}>
-        <DiagnosticScreen 
-          onBackToHome={() => setShowHome(true)}
-          appUserId={userId}
-          appIdToken={idToken}
-        />
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#000" }}>
+          <Text style={{ color: "#0F0", fontSize: 24, padding: 40, paddingTop: 80 }}>
+            If you can see this, the transition works.
+          </Text>
+          <Text style={{ color: "#FF0", fontSize: 14, padding: 40 }}>
+            The crash is inside MainScreen hooks/components.
+          </Text>
+          <TouchableOpacity onPress={() => setShowHome(true)} style={{ backgroundColor: "#333", margin: 40, padding: 16, borderRadius: 12, alignItems: "center" }}>
+            <Text style={{ color: "#FFF", fontSize: 16 }}>Go Back Home</Text>
+          </TouchableOpacity>
+        </SafeAreaView>
       </AppErrorBoundary>
       {settingsModal}
       {journeyModal}
