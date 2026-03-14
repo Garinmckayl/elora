@@ -441,10 +441,16 @@ function AppInner({ onFatalReset }: { onFatalReset?: () => void }) {
   return (
     <SafeAreaProvider>
       <AppErrorBoundary onReset={() => setShowHome(true)}>
-        <HookTester 
+        <MainScreen 
+          onOpenSettings={() => setShowSettings(true)} 
+          appUserId={userId} 
+          appIdToken={idToken} 
+          isDark={isDark} 
+          colors={colors} 
+          shadows={shadows}
           onBackToHome={() => setShowHome(true)}
-          appUserId={userId}
-          appIdToken={idToken}
+          initialIntent={initialIntent}
+          onIntentConsumed={() => setInitialIntent(null)}
         />
       </AppErrorBoundary>
       {settingsModal}
@@ -702,6 +708,25 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
   const userId = appUserId;
   const idToken = appIdToken ?? null;
 
+  // ---- STAGED LOADING ----
+  // Load hooks sequentially to prevent concurrent native audio crashes.
+  // Each stage enables after the previous one has had time to settle.
+  const [stage, setStage] = useState(0);
+  useEffect(() => {
+    // Stage 0: render (immediate)
+    // Stage 1: useElora connects (after 500ms)
+    // Stage 2: useVoice checks permissions (after 1500ms)
+    // Stage 3: useLiveKit connects (after 3000ms)
+    // Stage 4: useWakeWord starts (after 5000ms)
+    const timers = [
+      setTimeout(() => setStage(1), 500),
+      setTimeout(() => setStage(2), 1500),
+      setTimeout(() => setStage(3), 3000),
+      setTimeout(() => setStage(4), 5000),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
   // Compute styles dynamically based on current theme colors
   const styles = useMemo(() => createStyles(colors, shadows, isDark), [colors, shadows, isDark]);
 
@@ -759,7 +784,7 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
     messages, isConnected, isThinking, setIsThinking,
     sendMessage, sendImage, addMessage, sendPhotoSearchResults,
   } = useElora({
-    serverUrl: SERVER_URL,
+    serverUrl: stage >= 1 ? SERVER_URL : "",
     userId,
     token: idToken,
     onBrowserStart: useCallback(() => {
@@ -825,8 +850,8 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
     }, [addMessage]),
   });
 
-  // Voice recording
-  const { isRecording, hasPermission, ensurePermission, startRecording, stopRecording } = useVoice();
+  // Voice recording -- only activate at stage 2
+  const { isRecording, hasPermission, ensurePermission, startRecording, stopRecording } = useVoice(stage >= 2);
 
   // Ref to sendPhotoSearchResults — used in onPhotoSearchRequest callback (avoids circular dep)
   const sendPhotoSearchResultsRef = useRef<((name: string, uris: string[]) => void) | null>(null);
@@ -910,7 +935,7 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
   const { isListening: wakeListening } = useWakeWord({
     userId,
     token: idToken,
-    enabled: !inCall,  // disable during active calls to save resources
+    enabled: stage >= 4 && !inCall,  // disable during active calls to save resources
     onWake: handleWake,
   });
 
@@ -927,18 +952,20 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
   // Animated value for the wake word badge pulse
   const wakePulseAnim = useRef(new Animated.Value(0)).current;
 
-  // Connect to LiveKit on mount and when user changes
-  // Delay slightly to avoid racing with other audio hooks on initial mount
+  // Connect to LiveKit only after stage 3 to avoid racing with other audio hooks
   useEffect(() => {
+    if (stage < 3) return;
     const timer = setTimeout(() => {
       livekit.connect();
-    }, 1500);
+    }, 500);
     return () => clearTimeout(timer);
-  }, [livekit.connect]);
+  }, [stage, livekit.connect]);
 
   // Handle initial intent from HomeScreen (start call, open camera, or show chat)
+  // Wait for stage 3 (LiveKit ready) before handling voice intent
   useEffect(() => {
     if (!initialIntent) return;
+    if (initialIntent === "voice" && stage < 3) return; // wait for LiveKit
     const intent = initialIntent;
     onIntentConsumed?.();
 
@@ -979,7 +1006,7 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
       // Auto-focus the text input after a brief layout settle
       setTimeout(() => textInputRef.current?.focus(), 100);
     }
-  }, [initialIntent]);
+  }, [initialIntent, stage]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {

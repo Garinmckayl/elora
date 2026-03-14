@@ -62,17 +62,16 @@ export function getRecordingMimeType(): string {
   return Platform.OS === "ios" ? "audio/wav" : "audio/mp4";
 }
 
-export function useVoice() {
+export function useVoice(enabled: boolean = true) {
   const [hasPermission, setHasPermission] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const recordingRef = useRef<Audio.Recording | null>(null);
   const permissionCheckedRef = useRef(false);
 
-  // Check permission status on mount WITHOUT triggering the system dialog.
-  // The actual requestPermissionsAsync() call is deferred to when recording
-  // is first attempted, preventing a crash from concurrent audio session
-  // requests when multiple hooks mount simultaneously.
+  // Check permission status WITHOUT triggering the system dialog.
+  // Only runs when enabled (staged loading prevents concurrent audio access).
   useEffect(() => {
+    if (!enabled) return;
     (async () => {
       try {
         const { granted } = await Audio.getPermissionsAsync();
@@ -91,7 +90,7 @@ export function useVoice() {
         permissionCheckedRef.current = true;
       }
     })();
-  }, []);
+  }, [enabled]);
 
   /** Request permission if not already granted. Returns true if granted. */
   const ensurePermission = useCallback(async (): Promise<boolean> => {
