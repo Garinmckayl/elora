@@ -441,22 +441,143 @@ function AppInner({ onFatalReset }: { onFatalReset?: () => void }) {
   return (
     <SafeAreaProvider>
       <AppErrorBoundary onReset={() => setShowHome(true)}>
-        <MainScreen 
-          onOpenSettings={() => setShowSettings(true)} 
-          appUserId={userId} 
-          appIdToken={idToken} 
-          isDark={isDark} 
-          colors={colors} 
-          shadows={shadows}
+        <DiagnosticScreen 
           onBackToHome={() => setShowHome(true)}
-          initialIntent={initialIntent}
-          onIntentConsumed={() => setInitialIntent(null)}
+          appUserId={userId}
+          appIdToken={idToken}
         />
       </AppErrorBoundary>
       {settingsModal}
       {journeyModal}
       {skillsModal}
     </SafeAreaProvider>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// DiagnosticScreen -- loads each hook one at a time to identify crash source
+// ---------------------------------------------------------------------------
+function DiagnosticScreen({ onBackToHome, appUserId, appIdToken }: { onBackToHome: () => void; appUserId: string; appIdToken?: string | null }) {
+  const [step, setStep] = useState(0);
+  const [log, setLog] = useState<string[]>(["Starting diagnostics..."]);
+  const addLog = (msg: string) => setLog((prev) => [...prev, `[${new Date().toISOString().slice(11,19)}] ${msg}`]);
+
+  // Step 0: Just render (no hooks)
+  useEffect(() => {
+    addLog("Step 0: Basic render OK");
+    const t = setTimeout(() => setStep(1), 1500);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Step 1: useElora (WebSocket)
+  const eloraResult = step >= 1 ? (() => {
+    try {
+      addLog("Step 1: Loading useElora...");
+      return true;
+    } catch (e: any) {
+      addLog(`Step 1 FAILED: ${e.message}`);
+      return false;
+    }
+  })() : false;
+  
+  // Actually call hooks unconditionally (React rules) but guard execution
+  const elora = useElora({
+    serverUrl: step >= 1 ? WS_URL : "",
+    userId: appUserId,
+    token: appIdToken,
+    onBrowserStart: useCallback(() => {}, []),
+    onBrowserScreenshot: useCallback(() => {}, []),
+    onBrowserStep: useCallback(() => {}, []),
+    onPhotoSearchRequest: useCallback(() => {}, []),
+  });
+
+  useEffect(() => {
+    if (step === 1) {
+      addLog("Step 1: useElora loaded OK, connected=" + elora.isConnected);
+      const t = setTimeout(() => setStep(2), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [step, elora.isConnected]);
+
+  // Step 2: useVoice
+  const voice = useVoice();
+  useEffect(() => {
+    if (step === 2) {
+      addLog("Step 2: useVoice loaded OK, hasPermission=" + voice.hasPermission);
+      const t = setTimeout(() => setStep(3), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [step, voice.hasPermission]);
+
+  // Step 3: useLiveKit
+  const livekit = useLiveKit({
+    userId: appUserId,
+    token: appIdToken,
+    onText: useCallback(() => {}, []),
+    onTranscript: useCallback(() => {}, []),
+    onToolCall: useCallback(() => {}, []),
+    onAudioEnd: useCallback(() => {}, []),
+  });
+  useEffect(() => {
+    if (step === 3) {
+      addLog("Step 3: useLiveKit loaded OK");
+      // Try connecting
+      addLog("Step 3: Attempting livekit.connect()...");
+      livekit.connect().then(() => {
+        addLog("Step 3: livekit.connect() resolved, isConnected=" + livekit.isConnected);
+      }).catch((e: any) => {
+        addLog("Step 3: livekit.connect() FAILED: " + (e?.message || e));
+      });
+      const t = setTimeout(() => setStep(4), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [step]);
+
+  // Step 4: useWakeWord
+  const wake = useWakeWord({
+    userId: appUserId,
+    token: appIdToken,
+    enabled: step >= 4,
+    onWake: useCallback(() => { addLog("Wake triggered!"); }, []),
+  });
+  useEffect(() => {
+    if (step === 4) {
+      addLog("Step 4: useWakeWord loaded OK, isListening=" + wake.isListening);
+      const t = setTimeout(() => setStep(5), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [step, wake.isListening]);
+
+  // Step 5: All done
+  useEffect(() => {
+    if (step === 5) {
+      addLog("ALL HOOKS LOADED SUCCESSFULLY - no crash detected");
+    }
+  }, [step]);
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#000" }}>
+      <View style={{ padding: 20, paddingTop: 10 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <Text style={{ color: "#FF0", fontSize: 18, fontWeight: "700" }}>
+            DIAGNOSTIC MODE (Step {step}/5)
+          </Text>
+          <TouchableOpacity onPress={onBackToHome} style={{ backgroundColor: "#333", padding: 8, borderRadius: 8 }}>
+            <Text style={{ color: "#FFF", fontSize: 12 }}>Back</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={{ height: 4, backgroundColor: "#333", borderRadius: 2, marginBottom: 16 }}>
+          <View style={{ height: 4, backgroundColor: "#0F0", borderRadius: 2, width: `${(step / 5) * 100}%` }} />
+        </View>
+      </View>
+      <RNScrollView style={{ flex: 1, paddingHorizontal: 20 }}>
+        {log.map((entry, i) => (
+          <Text key={i} selectable style={{ color: entry.includes("FAIL") ? "#F00" : "#0F0", fontSize: 11, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", marginBottom: 4 }}>
+            {entry}
+          </Text>
+        ))}
+      </RNScrollView>
+    </SafeAreaView>
   );
 }
 
