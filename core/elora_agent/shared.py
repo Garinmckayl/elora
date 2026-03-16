@@ -5,6 +5,7 @@ Both the ADK agent (elora_agent/agent.py) and the LiveKit agent (livekit_agent.p
 import from here.
 """
 
+import threading
 from contextvars import ContextVar
 
 # Per-request user ID context var
@@ -17,25 +18,29 @@ current_browser_callback: ContextVar = ContextVar("current_browser_callback", de
 # Tool wrapper functions stash binary data here so it never enters the ADK
 # session history (which would blow up Gemini's context window on next turn).
 # The WebSocket handler retrieves and forwards the data to the client.
-pending_binary_payloads: ContextVar[list] = ContextVar("pending_binary_payloads", default=None)
+#
+# NOTE: We use a thread-safe global dict instead of ContextVar because ADK
+# may run tool functions in a thread pool, which creates a new context copy.
+# The ContextVar approach silently loses stashed data across context boundaries.
+_binary_lock = threading.Lock()
+_binary_payloads: dict[str, list] = {}  # user_id -> [payloads]
 
 
 def stash_binary_payload(payload: dict) -> None:
     """Stash a binary payload for the WebSocket handler to pick up."""
-    bucket = pending_binary_payloads.get()
-    if bucket is None:
-        bucket = []
-        pending_binary_payloads.set(bucket)
-    bucket.append(payload)
+    uid = current_user_id.get()
+    with _binary_lock:
+        if uid not in _binary_payloads:
+            _binary_payloads[uid] = []
+        _binary_payloads[uid].append(payload)
 
 
 def drain_binary_payloads() -> list:
     """Retrieve and clear all pending binary payloads."""
-    bucket = pending_binary_payloads.get()
-    if bucket:
-        pending_binary_payloads.set([])
-        return bucket
-    return []
+    uid = current_user_id.get()
+    with _binary_lock:
+        bucket = _binary_payloads.pop(uid, [])
+    return bucket
 
 
 def get_user_id() -> str:

@@ -19,7 +19,11 @@ const BLOCKED_MODULES = [
 
 // Detect if we're running in Expo Go (no custom native modules)
 // EAS_BUILD or EXPO_DEV_CLIENT indicate a dev client build.
-const isExpoGo = !process.env.EAS_BUILD && !process.env.EXPO_DEV_CLIENT;
+// Also check for a local prebuild (android/ or ios/ directory exists) which
+// means native modules are available even without EAS.
+const fs = require("fs");
+const hasNativeProject = fs.existsSync(path.resolve(__dirname, "android")) || fs.existsSync(path.resolve(__dirname, "ios"));
+const isExpoGo = !hasNativeProject && !process.env.EAS_BUILD && !process.env.EXPO_DEV_CLIENT;
 
 if (isExpoGo) {
   const originalResolveRequest = config.resolver.resolveRequest;

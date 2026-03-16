@@ -97,7 +97,7 @@ export default function SettingsScreen({ onClose, userId, user, onSignIn, onSign
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
         {/* Profile section */}
         <View style={styles.profileSection}>
           <LinearGradient

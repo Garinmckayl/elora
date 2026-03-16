@@ -30,6 +30,9 @@ E2B_API_KEY = os.getenv("E2B_API_KEY", "")
 CLAWHUB_API = "https://clawhub.ai/api/v1"
 CLAWHUB_TIMEOUT = 8  # seconds
 
+# In-memory skill store (fallback when Firestore is unavailable)
+_mem_skills: dict[str, dict] = {}  # user_id -> {skill_name -> skill_def}
+
 
 def _get_firestore():
     """Lazy Firestore client."""
@@ -439,20 +442,22 @@ def install_skill(skill_name: str, user_id: str) -> dict:
         }
 
     # Save to user's skills collection
+    skill_record = {
+        "name": skill_def["name"],
+        "description": skill_def["description"],
+        "category": skill_def.get("category", "general"),
+        "code_template": skill_def.get("code_template", ""),
+        "parameters": skill_def.get("parameters", {}),
+        "source": skill_def.get("source", "unknown"),
+        "installed_at": time.time(),
+        "enabled": True,
+    }
     try:
         db = _get_firestore()
-        db.collection("users").document(user_id).collection("skills").document(skill_name).set({
-            "name": skill_def["name"],
-            "description": skill_def["description"],
-            "category": skill_def.get("category", "general"),
-            "code_template": skill_def.get("code_template", ""),
-            "parameters": skill_def.get("parameters", {}),
-            "source": skill_def.get("source", "unknown"),
-            "installed_at": time.time(),
-            "enabled": True,
-        })
+        db.collection("users").document(user_id).collection("skills").document(skill_name).set(skill_record)
     except Exception as e:
-        return {"status": "error", "report": f"Failed to save skill: {e}"}
+        logger.warning(f"[Skills] Firestore save failed, using in-memory: {e}")
+        _mem_skills.setdefault(user_id, {})[skill_name] = skill_record
 
     # Deploy code to user's sandbox
     try:
@@ -579,6 +584,10 @@ def execute_skill(
     except Exception:
         pass
 
+    # Check in-memory skill store (fallback)
+    if not skill_def and user_id in _mem_skills and skill_name in _mem_skills[user_id]:
+        skill_def = _mem_skills[user_id][skill_name]
+
     # Fall back to bundled
     if not skill_def and skill_name in BUNDLED_SKILLS:
         skill_def = BUNDLED_SKILLS[skill_name]
@@ -693,7 +702,19 @@ def list_installed_skills(user_id: str) -> dict:
                 "created_at": data.get("created_at") or data.get("installed_at"),
             })
     except Exception as e:
-        logger.warning(f"[Skills] Failed to list user skills: {e}")
+        logger.warning(f"[Skills] Failed to list user skills from Firestore: {e}")
+
+    # Include in-memory skills (fallback store)
+    for sname, sdef in _mem_skills.get(user_id, {}).items():
+        if sname not in {s["name"] for s in skills}:
+            skills.append({
+                "name": sname,
+                "description": sdef.get("description", ""),
+                "category": sdef.get("category", "general"),
+                "source": sdef.get("source", "unknown"),
+                "enabled": sdef.get("enabled", True),
+                "created_at": sdef.get("installed_at"),
+            })
 
     # Also list available bundled skills
     bundled = []

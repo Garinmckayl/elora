@@ -363,6 +363,7 @@ export default function JourneyScreen({ onClose, userId, idToken }: JourneyScree
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          nestedScrollEnabled={true}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

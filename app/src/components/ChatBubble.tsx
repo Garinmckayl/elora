@@ -46,6 +46,7 @@ export interface ChatBubbleProps {
   /** For tool-use bubbles: structured info */
   toolName?: string;
   toolArgs?: Record<string, any>;
+  toolResult?: Record<string, any>;
   subAgentName?: string;
   isThinking?: boolean;
   /** Photo URIs from a face search result */
@@ -239,11 +240,13 @@ const TOOL_LABELS: Record<string, { icon: string; label: string; color: string }
 function ToolCard({
   toolName,
   toolArgs,
+  toolResult,
   subAgentName,
   isThinking,
 }: {
   toolName: string;
   toolArgs?: Record<string, any>;
+  toolResult?: Record<string, any>;
   subAgentName?: string;
   isThinking?: boolean;
 }) {
@@ -257,7 +260,8 @@ function ToolCard({
     setExpanded(e => !e);
   };
 
-  const hasDetail = !!toolArgs && Object.keys(toolArgs).length > 0;
+  const hasDetail = (!!toolArgs && Object.keys(toolArgs).length > 0) || (!!toolResult && Object.keys(toolResult).length > 0);
+  const resultReport = toolResult?.report || toolResult?.message || toolResult?.status;
 
   return (
     <TouchableOpacity
@@ -276,6 +280,9 @@ function ToolCard({
           </View>
         )}
         {isThinking && <ActivityDots color={meta.color} />}
+        {!isThinking && toolResult && (
+          <Ionicons name="checkmark-circle" size={14} color={meta.color} style={{ marginLeft: 4 }} />
+        )}
         {hasDetail && (
           <Ionicons
             name={expanded ? "chevron-up" : "chevron-down"}
@@ -286,9 +293,15 @@ function ToolCard({
         )}
       </View>
 
+      {!isThinking && resultReport && !expanded && (
+        <Text style={[tStyles.detailVal, { marginTop: 4, fontSize: 11, opacity: 0.7 }]} numberOfLines={2}>
+          {String(resultReport)}
+        </Text>
+      )}
+
       {expanded && hasDetail && (
         <View style={tStyles.detail}>
-          {Object.entries(toolArgs!).map(([k, v]) => (
+          {toolArgs && Object.keys(toolArgs).length > 0 && Object.entries(toolArgs).map(([k, v]) => (
             <View key={k} style={tStyles.detailRow}>
               <Text style={tStyles.detailKey}>{k}: </Text>
               <Text style={tStyles.detailVal} numberOfLines={3}>
@@ -296,6 +309,19 @@ function ToolCard({
               </Text>
             </View>
           ))}
+          {toolResult && Object.keys(toolResult).length > 0 && (
+            <>
+              <View style={{ height: 1, backgroundColor: colors.textTertiary + "33", marginVertical: 4 }} />
+              {Object.entries(toolResult).map(([k, v]) => (
+                <View key={`r-${k}`} style={tStyles.detailRow}>
+                  <Text style={[tStyles.detailKey, { color: meta.color }]}>{k}: </Text>
+                  <Text style={tStyles.detailVal} numberOfLines={5}>
+                    {typeof v === "object" ? JSON.stringify(v) : String(v)}
+                  </Text>
+                </View>
+              ))}
+            </>
+          )}
         </View>
       )}
     </TouchableOpacity>
@@ -354,6 +380,7 @@ export default function ChatBubble({
   audioMimeType,
   toolName,
   toolArgs,
+  toolResult,
   subAgentName,
   isThinking,
   photoUris,
@@ -379,6 +406,7 @@ export default function ChatBubble({
         <ToolCard
           toolName={toolName}
           toolArgs={toolArgs}
+          toolResult={toolResult}
           subAgentName={subAgentName}
           isThinking={isThinking}
         />

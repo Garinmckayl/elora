@@ -322,6 +322,17 @@ function AppInner({ onFatalReset }: { onFatalReset?: () => void }) {
   const [skippedAuth, setSkippedAuth] = useState(false);
   const userId = firebaseUid ?? "anonymous";
 
+  // IMPORTANT: These hooks MUST be declared before any early returns to satisfy
+  // React's rules of hooks (same number of hooks on every render).
+  const [mainReady, setMainReady] = useState(false);
+  useEffect(() => {
+    if (!showHome) {
+      setMainReady(false); // reset when navigating away
+      const t = setTimeout(() => setMainReady(true), 300);
+      return () => clearTimeout(t);
+    }
+  }, [showHome]);
+
   // Check if onboarding was completed
   useEffect(() => {
     AsyncStorage.getItem("elora_onboarded").then((val) => {
@@ -437,14 +448,6 @@ function AppInner({ onFatalReset }: { onFatalReset?: () => void }) {
       </SafeAreaProvider>
     );
   }
-
-  // Delay mounting MainScreen to give the previous screen's cleanup time to finish.
-  // This prevents native module crashes from simultaneous audio session access.
-  const [mainReady, setMainReady] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setMainReady(true), 300);
-    return () => clearTimeout(t);
-  }, []);
 
   if (!mainReady) {
     return (
@@ -804,11 +807,11 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
   const userId = appUserId;
   const idToken = appIdToken ?? null;
 
-  // ---- STAGED LOADING ----
-  // Delay rendering the full UI to let hooks initialize without competing for native resources.
+   // ---- STAGED LOADING ----
+  // Short delay to let hooks settle before showing full UI.
   const [renderReady, setRenderReady] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setRenderReady(true), 1000);
+    const t = setTimeout(() => setRenderReady(true), 500);
     return () => clearTimeout(t);
   }, []);
 
@@ -935,8 +938,8 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
     }, [addMessage]),
   });
 
-  // Voice recording
-  const { isRecording, hasPermission, ensurePermission, startRecording, stopRecording } = useVoice(true);
+  // Voice recording -- defer audio session access until user explicitly uses voice
+  const { isRecording, hasPermission, ensurePermission, startRecording, stopRecording } = useVoice(false);
 
   // Ref to sendPhotoSearchResults — used in onPhotoSearchRequest callback (avoids circular dep)
   const sendPhotoSearchResultsRef = useRef<((name: string, uris: string[]) => void) | null>(null);
@@ -1020,7 +1023,8 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
   const { isListening: wakeListening } = useWakeWord({
     userId,
     token: idToken,
-    enabled: !inCall,  // disable during active calls to save resources
+    enabled: false,  // DISABLED -- wake word's audio loop crashes budget phones.
+                     // Re-enable once core call/chat flow is stable.
     onWake: handleWake,
   });
 
@@ -1037,13 +1041,10 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
   // Animated value for the wake word badge pulse
   const wakePulseAnim = useRef(new Animated.Value(0)).current;
 
-  // Connect to LiveKit on mount
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      livekit.connect();
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [livekit.connect]);
+  // Connect to LiveKit only when user starts a call -- NOT on mount.
+  // Auto-connecting on mount causes native audio session crashes on budget phones
+  // when it collides with useWakeWord's audio session.
+  // livekit.connect() is called explicitly in handleCallToggle / intent handlers.
 
   // Handle initial intent from HomeScreen (start call, open camera, or show chat)
   useEffect(() => {
@@ -1305,6 +1306,7 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
       audioMimeType={item.audioMimeType}
       toolName={item.toolName}
       toolArgs={item.toolArgs}
+      toolResult={item.toolResult}
       subAgentName={item.subAgentName}
       isThinking={item.isThinking}
       photoUris={item.photoUris}
@@ -1486,24 +1488,17 @@ function MainScreen({ onOpenSettings, appUserId, appIdToken, isDark, colors, sha
         </View>
       </View>
 
-      {/* Vision Camera (single capture) */}
-      <VisionCapture
-        visible={showCamera}
-        onClose={() => setShowCamera(false)}
-        onCapture={(base64) => { sendImage(base64); }}
-      />
-
-      {/* Hidden CameraView for one-shot snaps when user says "this is [name]" (non-call mode)
-          During calls, LiveCallScreen manages the camera directly */}
-      {!inCall && cameraPermission?.granted && (
-        <CameraView
-          ref={liveCameraRef}
-          style={{ width: 1, height: 1, opacity: 0, position: "absolute" }}
-          facing="back"
-          flash="off"
-          animateShutter={false}
+      {/* Vision Camera (single capture) -- only mount when user explicitly opens */}
+      {showCamera && (
+        <VisionCapture
+          visible={showCamera}
+          onClose={() => setShowCamera(false)}
+          onCapture={(base64) => { sendImage(base64); }}
         />
       )}
+
+      {/* Hidden CameraView removed -- was causing native crash on budget phones.
+          Camera is now only created when user opens VisionCapture or LiveCallScreen. */}
 
       {/* Messages + Input wrapped in KeyboardAvoidingView */}
       <KeyboardAvoidingView

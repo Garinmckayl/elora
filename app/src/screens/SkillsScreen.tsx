@@ -208,6 +208,7 @@ export default function SkillsScreen({ onClose, userId }: SkillsScreenProps) {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        nestedScrollEnabled={true}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.gold} />
         }

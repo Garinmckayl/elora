@@ -101,6 +101,7 @@ export default function LiveCallScreen({
   const insets = useSafeAreaInsets();
   const [textInput, setTextInput] = useState("");
   const [showLog, setShowLog] = useState(true);
+  const [showTimer, setShowTimer] = useState(false);  // Hidden by default for clean demo recording
   const scrollRef = useRef<ScrollView>(null);
 
   // Dynamic styles that depend on theme + safe area
@@ -425,8 +426,10 @@ export default function LiveCallScreen({
           animated={true}
         />
 
-        {/* Call duration / status */}
-        <CallTimer isActive={true} />
+        {/* Call duration / status -- tap to toggle visibility */}
+        <TouchableOpacity onPress={() => setShowTimer((v) => !v)} activeOpacity={0.7}>
+          {showTimer ? <CallTimer isActive={true} /> : <View style={{ width: 60 }} />}
+        </TouchableOpacity>
 
         {/* Menu button */}
         <TouchableOpacity style={styles.menuButton} onPress={onFlipCamera}>

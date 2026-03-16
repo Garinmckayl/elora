@@ -101,15 +101,18 @@ export function useLiveKit({
           console.log("[LiveKit] AudioSession started");
         } catch (audioErr) {
           console.warn("[LiveKit] AudioSession setup failed (non-fatal):", audioErr);
-          // Continue -- the connection may still work without explicit audio config
         }
+      } else {
+        console.log("[LiveKit] No AudioSession available, skipping audio config");
       }
 
+      console.log("[LiveKit] Fetching token from:", `${BACKEND_URL}/livekit/token`);
       const params = new URLSearchParams({ user_id: userId });
       if (token) params.set("token", token);
 
       const res = await fetch(`${BACKEND_URL}/livekit/token?${params}`, { method: "POST" });
       const data = await res.json();
+      console.log("[LiveKit] Token response:", JSON.stringify(data).slice(0, 200));
 
       const tokenData = Array.isArray(data) ? data[0] : data;
       if (tokenData.error || !res.ok) {
@@ -170,21 +173,30 @@ export function useLiveKit({
   }, [userId, token]);
 
   const startCall = useCallback(async () => {
-    if (!Room || typeof Room !== "function" || !RoomEvent?.Connected) return;
+    if (!Room || typeof Room !== "function" || !RoomEvent?.Connected) {
+      console.warn("[LiveKit] startCall: LiveKit not available");
+      return;
+    }
 
     const room = roomRef.current;
     if (!room || room.state !== ConnectionState.Connected) {
+      console.log("[LiveKit] startCall: not connected, calling connect()...");
       await connect();
-      await new Promise(r => setTimeout(r, 500));
+      // Wait for connection to establish
+      await new Promise(r => setTimeout(r, 1500));
     }
 
     const currentRoom = roomRef.current;
-    if (!currentRoom || currentRoom.state !== ConnectionState.Connected) return;
+    if (!currentRoom || currentRoom.state !== ConnectionState.Connected) {
+      console.error("[LiveKit] startCall: still not connected after connect() attempt, state:", currentRoom?.state);
+      return;
+    }
 
     try {
+      console.log("[LiveKit] startCall: enabling microphone...");
       await currentRoom.localParticipant.setMicrophoneEnabled(true);
       setInCall(true);
-      console.log("[LiveKit] Call started");
+      console.log("[LiveKit] Call started successfully");
     } catch (e) {
       console.error("[LiveKit] Failed to start call:", e);
     }

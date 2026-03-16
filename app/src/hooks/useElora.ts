@@ -25,6 +25,7 @@ export interface Message {
   // Tool-use card fields
   toolName?: string;
   toolArgs?: Record<string, any>;
+  toolResult?: Record<string, any>;
   subAgentName?: string;
   isThinking?: boolean;
   // Photo search results (attached to the message when search completes)
@@ -158,11 +159,16 @@ export function useElora(options: UseEloraOptions = {}) {
             setMessages((prev) => [...prev, audioMsg]);
           }
           setMessages((prev) =>
-            prev.map((m) =>
-              m.toolName === data.name && m.isThinking
-                ? { ...m, isThinking: false }
-                : m
-            )
+            prev.map((m) => {
+              if (m.toolName === data.name && m.isThinking) {
+                return {
+                  ...m,
+                  isThinking: false,
+                  toolResult: data.result,
+                };
+              }
+              return m;
+            })
           );
         } else if (data.type === "audio_result" && data.audio_base64) {
           // Dedicated audio message from backend (avoids huge tool_result frames)

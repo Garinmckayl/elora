@@ -49,3 +49,4 @@ docs/gcp-deployment-proof.md
 
 # Build
 *.egg-info/
+core/sa-key.json
